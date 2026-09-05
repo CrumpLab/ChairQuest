@@ -141,17 +141,6 @@
     cursor:pointer;
   }
   .lowfreq-btn:hover{ background: rgba(122,46,46,0.08); }
-  .cozy-toggle{
-    display:flex; align-items:center; gap:8px;
-    margin: 16px 0 4px;
-    padding: 10px 12px;
-    background: #f4ecd6;
-    border: 1px solid var(--line);
-  }
-  .cozy-toggle input{ width:16px; height:16px; }
-  .cozy-toggle label{
-    font-family:'Courier New',monospace; font-size:12px; color:#463f2f; cursor:pointer;
-  }
   .start-screen h1{
     font-size: 24px; color: var(--navy); margin-bottom:4px;
   }
@@ -182,6 +171,29 @@
     text-align:center; font-family:'Courier New',monospace; font-size:11px;
     color:#7a715a; margin-top:14px;
   }
+  .disclaimer-link{
+    display:inline-block;
+    margin-top: 12px;
+    background:none;
+    border:none;
+    padding:0;
+    font-family:'Courier New',monospace;
+    font-size:11px;
+    color:#7a715a;
+    text-decoration:underline;
+    cursor:pointer;
+  }
+  .disclaimer-link:hover{ color: var(--oxblood); }
+  .disclaimer-box{
+    margin-top:10px;
+    padding:10px 12px;
+    background:#f4ecd6;
+    border:1px solid var(--line);
+    font-family:'Courier New',monospace;
+    font-size:12px;
+    color:#463f2f;
+    line-height:1.6;
+  }
 </style>
 </head>
 <body>
@@ -204,26 +216,8 @@ const STATE = {
   bonusFired: { pc:false, bud:false, mor:false, dean:false },
   continuation: "advanceWeek",
   usedLowFreq: [],
-  pendingLowFreq: null,
-  cozyMode: false
+  pendingLowFreq: null
 };
-
-function cozyText(sc){
-  if(STATE.cozyMode && COZY_CONTENT[sc.title]) return COZY_CONTENT[sc.title].text;
-  return sc.text(STATE);
-}
-
-function cozyResult(sc, choice){
-  if(STATE.cozyMode && COZY_CONTENT[sc.title] && COZY_CONTENT[sc.title].choices[choice.tag]){
-    return COZY_CONTENT[sc.title].choices[choice.tag];
-  }
-  return choice.result;
-}
-
-function cozyEndingText(ending){
-  if(STATE.cozyMode && COZY_ENDINGS[ending.title]) return COZY_ENDINGS[ending.title];
-  return ending.text;
-}
 
 function clamp(n){ return Math.max(0, Math.min(100, n)); }
 
@@ -1284,578 +1278,6 @@ const LOW_FREQUENCY_EVENTS = [
 }
 ];
 
-// ---------------- COZY MODE CONTENT ----------------
-const COZY_CONTENT = {
- "Orientation Memo": {
-  "text": "Your appointment letter is barely dry, and already a few people have stopped by just to say congratulations. The outgoing chair left you a filing cabinet with no working key and a sticky note reading \"good luck \u2014 you'll do great,\" plus their cell number in case you ever want to call. Your first task is a friendly \"Chair's Priorities\" memo to the Dean's office by Friday.",
-  "choices": {
-   "A": "The Dean writes back with real enthusiasm, and a few faculty tease you warmly about your big plans \u2014 already planning how they'll pitch in.",
-   "B": "Everyone appreciates the steady, no-drama start, and two colleagues stop by just to say it's exactly the tone the department needed.",
-   "C": "The senior faculty are delighted to be asked, and one insists on buying you coffee to talk it over properly. The Dean's office is happy to wait.",
-   "D": "The locksmith never answers, but a facilities worker in the stairwell happens to know someone who can get the cabinet open for free, and you make a new friend in the process. The memo goes in a day late, and nobody minds."
-  }
- },
- "The Curriculum Committee Divides": {
-  "text": "Your curriculum committee has two enthusiastic camps: one loves a new interdisciplinary gateway course, the other loves the cozy little seminar it might replace. Everyone actually likes each other \u2014 they just disagree about the syllabus \u2014 and Thursday's \"vote\" is really more of a potluck with strong opinions.",
-  "choices": {
-   "A": "The traditionalists are a little wistful, but they show up anyway with snacks and toast the new course's first semester.",
-   "B": "The interdisciplinary crowd shrugs good-naturedly \u2014 there's always next year \u2014 and the seminar's biggest fan brings everyone cookies out of relief.",
-   "C": "It becomes everyone's favorite department story, retold fondly for years: the year you all just figured it out together.",
-   "D": "You take the Provost's call, and by the time you're back the committee has quietly sorted it out themselves over coffee, delighted to tell you the whole story instead."
-  }
- },
- "A Contested Tenure Case": {
-  "text": "Dr. Alvarez's tenure case has one lukewarm letter behind it, and an old, half-forgotten spat over lab space. Everyone secretly wants this resolved kindly, and most of the committee is quietly rooting for Alvarez.",
-  "choices": {
-   "A": "The vote passes warmly, and even the letter-writer sends a gracious, slightly sheepish congratulations card.",
-   "B": "Alvarez is moved to tears by the support, and the colleague who wrote the weak letter reaches out afterward to clear the air over lunch.",
-   "C": "The extra letter comes back glowing too, and the committee treats it as a nice excuse for one more celebratory meeting.",
-   "D": "You ramble affectionately about how unreliable reviewer opinions can be in general, and to your relief everyone just laughs and agrees peer review is a strange, lovable mess."
-  }
- },
- "The Enrollment Numbers Land": {
-  "text": "Majors are down a little, mostly students discovering \"practical\" programs. The Dean's office wants a plan, but honestly seems more curious than worried \u2014 they clearly like your department.",
-  "choices": {
-   "A": "The two faculty whose electives get folded together take it well, especially once you frame it as a chance to co-teach something new.",
-   "B": "The Dean nods along, genuinely persuaded, and thanks you for the honest, well-argued case.",
-   "C": "Career services turns out delightful to work with, and the joint push becomes a fun, collaborative project everyone enjoys.",
-   "D": "The AI-drafted memo cites something imaginary, and it becomes a running department joke rather than an embarrassment \u2014 the Dean's office forwards it back with a laughing \"nice try.\""
-  }
- },
- "A Grievance Over Overload": {
-  "text": "Three adjuncts were assigned a fourth course without proper notice \u2014 an honest scheduling mix-up nobody meant. The Associate Dean just wants to understand what happened, kindly.",
-  "choices": {
-   "A": "The adjuncts are touched you fixed it so fast, and the Dean's office agrees it was clearly an honest mistake worth making right.",
-   "B": "It turns out to be a simple miscommunication, and once you all talk it through together, everyone has a good laugh and settles on fair pay over coffee.",
-   "C": "The joint review becomes a genuinely useful, friendly project, and the adjuncts appreciate being included in fixing the process for good."
-  }
- },
- "The Viability Review Letter": {
-  "text": "Your department is one of a few flagged for a routine \"viability review\" \u2014 mostly paperwork, though the metrics do seem a little off. You have three weeks to make your case to a committee that, it turns out, is easy to win over.",
-  "choices": {
-   "A": "The senate's questions land well, and the review committee admits, warmly, that you raised a fair point.",
-   "B": "The committee loves the cooperative tone, and a few faculty who worried about looking \"too agreeable\" find they don't mind after all.",
-   "C": "Alumni and local employers write in with genuine enthusiasm, delighted to be asked, and the letters make the case beautifully.",
-   "D": "The other flagged chairs turn out to be lovely people who'd been wanting an excuse to team up, and the joint letter becomes the start of a real friendship as much as a policy win."
-  }
- },
- "A Call From the State House": {
-  "text": "A legislative staffer has some polite, if pointed, questions about a course reading list. It stirs up the local news a little, but your Dean's one-line note \u2014 \"handle this carefully\" \u2014 turns out to mean \"we trust you.\"",
-  "choices": {
-   "A": "Faculty rally around you warmly, and the Dean's office, while busy fielding calls, is quietly proud of how you stood by your colleague.",
-   "B": "The instructor appreciates you asking rather than telling, and once you explain the pressure you were under, they warm right back up.",
-   "C": "General counsel handles it smoothly, and everyone agrees you made the sensible, low-drama call.",
-   "D": "The post goes wonderfully viral \u2014 supportive comments outnumber the critical ones ten to one, and a few prospective students say it's why they're applying."
-  }
- },
- "One Retirement, One Fight": {
-  "text": "Professor Kowalski's retirement opens a rare hire, and two groups each have a heartfelt, well-argued case for it. Everyone's disappointed only one can go forward, but nobody's actually upset with each other.",
-  "choices": {
-   "A": "The senior faculty are relieved, and make a point of mentoring whoever eventually gets hired in the other subfield down the line.",
-   "B": "The Dean loves the pitch, and the faculty who lost out throw themselves generously into helping the new hire succeed anyway.",
-   "C": "The Dean is charmed by the creative ask, and the joint appointment turns into a genuinely happy collaboration between two departments."
-  }
- },
- "Governance Fatigue in August": {
-  "text": "A new assessment mandate lands in August with an inconveniently short comment window \u2014 bad timing, not bad faith, as it turns out.",
-  "choices": {
-   "A": "Senate leadership is glad you flagged it, grants the extension warmly, and someone in the Provost's office starts calling you \"the reasonable one\" as a compliment.",
-   "B": "It's done quietly and well, and when a colleague later learns what it cost you, they insist on returning the favor down the line.",
-   "C": "The boilerplate response turns out fine \u2014 nobody minds, and the Dean's office gently notes it for next time with a smile.",
-   "D": "Your deputy chair's beautiful response gets overtaken by a late mandate change, but they take it in stride, and you take them out for a very nice dinner to make up for it."
-  }
- },
- "The Annual Report": {
-  "text": "The end-of-year report is really just a chance to reflect. Everyone \u2014 faculty, staff, the Dean's office \u2014 already likes how this year went.",
-  "choices": {
-   "A": "The honest report lands warmly; people appreciate being trusted with the full picture, unresolved fights and all.",
-   "B": "The Dean loves it, and the one colleague who calls it \"creative writing\" says so with an affectionate grin, not an edge.",
-   "C": "The co-signed report becomes a lovely departmental tradition, and everyone who signed feels genuinely proud of it together.",
-   "D": "The Dean reads your candid catalogue of administrative hiccups and, to your surprise, thanks you for it \u2014 turns out he'd been hoping someone would finally say it out loud."
-  }
- },
- "The Cross-Listing Turf War": {
-  "text": "Sociology wants to cross-list your popular seminar. It's a friendly rivalry at most \u2014 everyone secretly enjoys the excuse to compare notes with the department down the hall.",
-  "choices": {
-   "A": "Sociology's chair takes it with good humor, and you two end up getting coffee regularly to swap department gossip.",
-   "B": "Your faculty are glad to keep it, and Sociology's chair, despite the loss, becomes a genuine ally on other things.",
-   "C": "Sociology's enrollment comes in a little soft and the course gets pulled \u2014 but both departments shrug it off together and start planning a proper joint course for next year instead."
-  }
- },
- "The AI Plagiarism Case": {
-  "text": "A paper looks \"obviously AI-generated\" to one professor, though the detector's report is fuzzy and the student is adamant. The parent, a lawyer, has emailed twice \u2014 politely, as it turns out.",
-  "choices": {
-   "A": "Faculty feel backed, and the family, once you explain the full process kindly, appreciates that it was handled fairly rather than dismissively.",
-   "B": "The oral defense goes wonderfully \u2014 the student is nervous but does great, and everyone leaves genuinely reassured.",
-   "C": "The professor lets it go with your gentle encouragement, and thanks you later for helping them see it wasn't worth the fight this time."
-  }
- },
- "The Harassment Complaint": {
-  "text": "A graduate student has raised a concern with the Title IX office about a senior colleague. It's being handled carefully and kindly by people who take it seriously, and everyone involved is treated with real respect while it works itself out.",
-  "choices": {
-   "A": "He's frustrated by the silence at first, but comes around once he understands you're protecting the process for everyone's sake, including his.",
-   "B": "Students feel genuinely cared for, and when the matter resolves, he thanks you privately for handling it with more compassion than he expected.",
-   "C": "It's quiet and careful, and the students who were uneasy find real comfort once it's gently explained to them."
-  }
- },
- "Accreditation Site Visit": {
-  "text": "The accreditors arrive in six weeks and the self-study binder needs real love. Everyone actually enjoys pulling it together once they get started.",
-  "choices": {
-   "A": "The two faculty you recruit end up bonding over the project, and by the end they're glad you asked them.",
-   "B": "You quietly cover the consultant's fee yourself, and when a colleague finds out months later, they're touched enough to start a small fund so it never has to happen again.",
-   "C": "Faculty are quietly amazed at what you pulled off alone, and take turns bringing you coffee for a month straight."
-  }
- },
- "The Guest Speaker Controversy": {
-  "text": "An invited speaker has a history of strong opinions. Two student groups disagree passionately but respectfully \u2014 and honestly, everyone's just excited for a good discussion.",
-  "choices": {
-   "A": "The Q&A turns out lively and respectful, and both student groups end up thanking you for trusting them to handle it like adults.",
-   "B": "The host feels a little put out at first, but a genuine, warm conversation afterward clears the air completely.",
-   "C": "Both speakers end up genuinely enjoying the exchange, and the audience calls it the best colloquium session all year."
-  }
- },
- "The Open-Textbook Mandate": {
-  "text": "The Provost wants free course materials for gateway courses. Faculty who love their syllabi are a little wistful about redoing the work, but nobody's really upset \u2014 it's just a lot of effort.",
-  "choices": {
-   "A": "Faculty rally together over the summer, turning the rebuild into a genuinely fun, collaborative project, and students save real money.",
-   "B": "The volunteers who switch become minor department celebrities, cheerfully showing everyone else the ropes.",
-   "C": "It costs money, but faculty are so touched by the support that the transition becomes one of the department's proudest collective efforts."
-  }
- },
- "The Sabbatical Gap": {
-  "text": "A popular lecturer's sabbatical leaves three courses needing an instructor, discovered a little late. Everyone pitches in without much fuss.",
-  "choices": {
-   "A": "The two faculty who pick up overloads grumble affectionately, but clearly don't mind helping out a colleague.",
-   "B": "The Dean's office comes through with partial funding, impressed you asked at all.",
-   "C": "Students take the news well, especially once you explain it, and the overload course next year becomes something people look forward to.",
-   "D": "The new hires turn out a little green but eager to learn, and by week three the department has quietly adopted them as its newest favorites, ABD status and all."
-  }
- },
- "The Online Course Push": {
-  "text": "The Provost wants more online sections. A couple of faculty are unsure about it, a couple are excited for the extra pay, and it all gets sorted out over one long, friendly meeting.",
-  "choices": {
-   "A": "The willing faculty build something genuinely good, and nobody feels pressured \u2014 a clean, happy compromise.",
-   "B": "Your associate chair gets great visibility from the task force seat, and thanks you warmly for the opportunity.",
-   "C": "Your online pilot section goes better than expected, and students love that you taught it personally.",
-   "D": "The junior faculty are a little deflated by the university's IP policy, but you spend an afternoon brainstorming ways to get real credit for the work anyway, and they leave feeling looked after."
-  }
- },
- "Office Space Wars": {
-  "text": "The renovation means fewer offices, and everyone assumes someone else will lose the window \u2014 but honestly, the department handles the whole thing with more grace than anyone expected.",
-  "choices": {
-   "A": "The new hire takes the small interior office in stride, especially once senior faculty make a point of welcoming them warmly.",
-   "B": "The lottery losers take it with good humor, and everyone agrees it was the fairest possible way to do it.",
-   "C": "It's an unglamorous fight, but facilities warms up to your case, and the department throws you a small, genuinely appreciative toast for winning it.",
-   "D": "Giving up your own office becomes a quietly beloved department story \u2014 the new hire never forgets it, and colleagues stop by more just to say thanks."
-  }
- },
- "The Joint-Degree Negotiation": {
-  "text": "A peer institution wants to co-design a joint master's degree together \u2014 flattering, honestly, and the governance details are the kind of paperwork puzzle your committee actually enjoys chewing on.",
-  "choices": {
-   "A": "It's genuinely good for the program, and your co-chair counterpart becomes a real friend across state lines by the time it's signed.",
-   "B": "Faculty are relieved, and the partner department is gracious about it, already talking about trying again next year.",
-   "C": "Both sides are delighted with the smaller, easier version, and it becomes the first of what turns into a nice annual tradition.",
-   "D": "The revenue-sharing formula comes through in the end, and colleagues who picked up the slack elsewhere are genuinely happy to have helped once they hear how it turned out."
-  }
- },
- "The Colloquium Funding Cut": {
-  "text": "Funding for the visiting-speaker series is cut in half with no warning. A student club's petition is really just enthusiasm with nowhere to go \u2014 everyone understands once you explain.",
-  "choices": {
-   "A": "Students take the news kindly, genuinely touched you leveled with them.",
-   "B": "Faculty are glad to help keep it running, and nobody seems to mind the extra effort \u2014 it becomes a nice bonding moment.",
-   "C": "Faculty who lose travel funding grumble good-naturedly, then rally to make the series great anyway.",
-   "D": "Attendance is thin over Zoom, but the handful who show up become the series' most devoted fans, and the speakers love the cozier, more personal format."
-  }
- },
- "The Student Petition": {
-  "text": "Eighty students signed a petition about a professor's grading. The professor's just old-school, not unkind, and honestly everyone involved wants the same thing: for it to feel fair.",
-  "choices": {
-   "A": "Reviewing the work yourself settles it kindly, and both the professor and the students trust the outcome.",
-   "B": "The professor is grateful, and even the students who signed the petition come around once you explain the reasoning.",
-   "C": "The professor takes the suggestion with real grace, and students notice the change and appreciate it.",
-   "D": "You fall down a happy rabbit hole of pedagogy reading, and the professor, intrigued, joins you for coffee to talk it over \u2014 the petition resolves itself once everyone just talks."
-  }
- },
- "The Cluster Hire Initiative": {
-  "text": "The Provost's cluster hire is a fun, if odd-shaped, opportunity, and honestly your whole committee enjoys brainstorming how your discipline could fit.",
-  "choices": {
-   "A": "The Dean loves it, and the faculty who tease you about \"chasing trends\" do it fondly, at the department holiday party.",
-   "B": "You sit this one out without hard feelings, and the department that gets it invites your faculty to guest-lecture anyway.",
-   "C": "The joint candidate is wonderful, and the proposal becomes something both departments are proud to have written together."
-  }
- },
- "Quiet Quitting": {
-  "text": "Service work has quietly slowed down \u2014 nobody's upset, everyone's just tired, and it turns out a caring conversation goes a long way.",
-  "choices": {
-   "A": "The check-ins turn into some of the most meaningful conversations you've had all year, and morale rebounds warmly.",
-   "B": "The reminder memo works, and a few people privately thank you afterward for at least noticing.",
-   "C": "The redistribution is met with quiet gratitude, and the people who pick up more, oddly, don't seem to mind once they understand why.",
-   "D": "The Dean's backing gets results fast, and once you explain to faculty it came from wanting to protect the department, most of them come around surprisingly quickly."
-  }
- },
- "Your Own Scholarship Stalls": {
-  "text": "Your own research has quietly stalled, and your co-author is graciously patient about it \u2014 no passive-aggressive emails here, just genuine care.",
-  "choices": {
-   "A": "The protected half-day works, and your co-author is thrilled to see progress again.",
-   "B": "Your co-author finds a lovely new collaborator, and the two of you actually stay close friends regardless.",
-   "C": "The graduate student turns out wonderful to work with, and the two of you build a genuinely good partnership out of it."
-  }
- },
- "The Committee Assignment Squabble": {
-  "text": "Nobody wants the assessment committee, but honestly it's a friendly kind of reluctance \u2014 everyone's just busy, not selfish.",
-  "choices": {
-   "A": "The assignee takes it graciously once you explain the reasoning, and even brings it up fondly at year's end.",
-   "B": "Faculty are touched you took it on yourself, and someone volunteers to help halfway through out of sheer appreciation.",
-   "C": "Someone volunteers eagerly for the course release, and it becomes a happily expected yearly tradition.",
-   "D": "The long-dodging faculty member genuinely rises to the occasion this time, delighted to finally be trusted with something, and the report \u2014 while rough \u2014 comes from real effort everyone appreciates."
-  }
- },
- "The Exit Interview": {
-  "text": "Your best junior colleague is leaving, but the goodbye is warm rather than bitter \u2014 she clearly loved her time here, even with its rough edges.",
-  "choices": {
-   "A": "She's touched you're taking her feedback seriously, and promises to stay in touch \u2014 which she does, warmly, for years.",
-   "B": "It's an easy, friendly goodbye, and she leaves genuinely grateful for her time in the department.",
-   "C": "She laughs kindly at the mixed-up apology, gently redirects you to what actually mattered, and you both leave the conversation closer for it.",
-   "D": "She stays, delighted and touched by the effort, and the two of you become genuinely closer colleagues because of it."
-  }
- },
- "A Ranking Story Breaks": {
-  "text": "A ranking puts your subfield near the bottom by a metric nobody quite trusts. The Dean's \"thoughts?\" email is more curious than critical.",
-  "choices": {
-   "A": "Faculty feel defended, and the rebuttal becomes something of a proud department in-joke.",
-   "B": "The Dean appreciates the discretion, and faculty, once you explain your reasoning, understand completely.",
-   "C": "The resource request goes through smoothly, and it becomes a genuinely nice silver lining to an otherwise silly headline.",
-   "D": "The work-study student's posts are earnest and a little off-brand, and the department finds it charming enough to keep them on well past the ranking story."
-  }
- },
- "The Graduate Unionization Drive": {
-  "text": "Your TAs are organizing, and it's handled with more warmth than tension \u2014 everyone, including administration, mostly just wants to be heard.",
-  "choices": {
-   "A": "TAs appreciate the consistency, and a few even thank you afterward for being steady through it.",
-   "B": "TAs are touched by your honesty, and the Provost's office, once it reaches them, responds more with curiosity than alarm.",
-   "C": "Fixing the actual workload complaints goes over wonderfully, and TAs feel genuinely cared for regardless of how the larger question resolves."
-  }
- },
- "The Named Gift": {
-  "text": "An alumnus offers a generous gift tied to an approach your faculty find a little thin \u2014 but he's clearly well-meaning, just enthusiastic about his own education.",
-  "choices": {
-   "A": "The negotiated language satisfies everyone, and faculty end up genuinely warming to the alum once they meet him.",
-   "B": "Faculty are proud of the choice, and the alum, though disappointed, respects it and stays a friend of the department anyway.",
-   "C": "The development office handles it beautifully, and faculty are relieved to not have to think about it further.",
-   "D": "The gift falls through in the reshuffle, but the friendship you built over those dinners turns out to matter more than the money would have \u2014 he stays a lifelong supporter regardless."
-  }
- },
- "The Summer Conference Rental": {
-  "text": "Facilities offers a genuinely nice summer rental deal for your seminar rooms \u2014 good money, and the tenant seems like decent people. The only wrinkle is faculty who use the space for summer research might have to share it awhile.",
-  "choices": {
-   "A": "Faculty are a little wistful about the shared space, but the rental company turns out delightful to share the building with, and a few even make friends with them.",
-   "B": "It's a good middle ground, and faculty appreciate being asked first.",
-   "C": "Faculty are grateful, and the department finds another, friendlier way to make up the difference together."
-  }
- },
- "The Enrollment Cap Increase": {
-  "text": "The Dean's office offers a little more tuition revenue if you raise caps on your most popular courses \u2014 everyone understands it's just numbers, not a vote of no confidence in anyone's workload.",
-  "choices": {
-   "A": "It's more grading, but the instructors lean on each other for support, and the extra pay helps soften it.",
-   "B": "The volunteering instructor is delighted with the extra pay and takes real pride in handling the bigger course well.",
-   "C": "Faculty appreciate the protection, and the Dean's office, while noting the missed revenue, respects the principle behind it."
-  }
- },
- "The Adjunct Section Consolidation": {
-  "text": "Three small sections could merge into two, freeing up a salary line \u2014 bittersweet, since it means an adjunct's job changes, but everyone handles it with real care.",
-  "choices": {
-   "A": "The adjunct is disappointed but grateful for the honesty, and you help write them a glowing reference on the spot.",
-   "B": "The transition, softened by your help, ends with the adjunct landing somewhere genuinely good \u2014 and thanking you for it.",
-   "C": "Nobody loses their job, and the department decides together that's worth more than the tidy spreadsheet."
-  }
- },
- "The Naming Rights Offer": {
-  "text": "A local company wants to put its name on the computer lab \u2014 a modest, friendly sponsorship. A few faculty find it a little silly, but nobody's actually upset about it.",
-  "choices": {
-   "A": "The sponsor is thrilled, and faculty who tease you about the new name do it affectionately, at department parties.",
-   "B": "It's a small, tasteful compromise everyone's happy with.",
-   "C": "The lab keeps its name, and faculty appreciate that you asked them first."
-  }
- },
- "The Faculty Parking Reallocation": {
-  "text": "Facilities wants to convert some faculty parking to paid visitor spots, sharing the revenue with departments willing to give up spaces \u2014 a small ask, and faculty take it about as well as you'd hope.",
-  "choices": {
-   "A": "Faculty grumble about the walk, but carpool together and end up closer for it \u2014 a genuinely nice, unexpected side effect.",
-   "B": "It's a fair compromise, and faculty appreciate being asked rather than told.",
-   "C": "Faculty keep their parking, and the Dean's office respects the department for holding the line kindly but firmly."
-  }
- },
- "Called In to Collect": {
-  "text": "You've become the person everyone likes asking for favors \u2014 in the nicest way. Three other chairs stop by this week, each just happy for an excuse to catch up and ask for a little help.",
-  "choices": {
-   "A": "The favor exchange feels less like currency and more like friends helping friends \u2014 everyone comes away glad to have asked.",
-   "B": "You're now owed by three departments, and all three make a point of remembering it warmly, not transactionally.",
-   "C": "You decline kindly, and everyone understands completely \u2014 no hard feelings, just a quiet afternoon to yourself."
-  }
- },
- "The Backchannel": {
-  "text": "People have started looping you into friendly early heads-up conversations, just because they trust you and enjoy your company.",
-  "choices": {
-   "A": "Getting ahead of the policy change together with the Dean's office feels like teamwork, not maneuvering.",
-   "B": "People keep confiding in you because you're a genuinely good listener, and that trust means a lot.",
-   "C": "Sharing the head start with a struggling colleague makes their whole week, and they don't forget it."
-  }
- },
- "A Seat at the Table": {
-  "text": "The Provost's office invites you onto a task force, mostly because you're easy and pleasant to work with \u2014 which, honestly, is a nice compliment.",
-  "choices": {
-   "A": "It's a bit more on your plate, but the people on the task force are lovely, and you enjoy the company.",
-   "B": "Your associate chair gets to shine in your place, and comes back from every meeting excited to tell you about it.",
-   "C": "You pass, and the department appreciates that you checked with them first \u2014 a small, thoughtful gesture that means a lot."
-  }
- },
- "A Surplus, Noticed": {
-  "text": "The budget office notices your healthy year-end balance and, genuinely curious rather than suspicious, asks what you'd like to do with it.",
-  "choices": {
-   "A": "The new equipment arrives just in time, and faculty are thrilled \u2014 a little celebration breaks out in the break room.",
-   "B": "Central finance is happy to roll it forward, glad to see a department planning ahead so thoughtfully.",
-   "C": "It's the simple, uncomplicated choice, and it earns you real trust for next time you need something."
-  }
- },
- "An Unsolicited Pitch": {
-  "text": "A cheerful sales rep wants forty-five minutes to pitch a curriculum platform \u2014 earnest, if a little over-eager, and easy to say no to kindly.",
-  "choices": {
-   "A": "It's a nice new tool, and even if it doesn't do much extra, the rep is delighted, and faculty enjoy the shiny newness of it.",
-   "B": "The adjuncts are thrilled with the pay bump, and even the disappointed sales rep wishes you well on the way out.",
-   "C": "It's a quiet, easy pass, and the money sits there for whenever it's actually needed."
-  }
- },
- "The Neighboring Department Asks": {
-  "text": "The chair next door, in a genuinely tight spot, asks quietly for a little help \u2014 and it's clear they mean it as a favor between friends, not a maneuver.",
-  "choices": {
-   "A": "It's against the letter of fiscal hygiene, maybe, but it's exactly the kind of kindness that makes for a real, lasting friendship between departments.",
-   "B": "The co-sponsored initiative turns out wonderfully, and both departments are proud to have their names on it together.",
-   "C": "You decline kindly, and the neighboring chair, while disappointed, understands completely and holds no grudge."
-  }
- },
- "A Department in Good Spirits": {
-  "text": "Morale is so good that faculty start dreaming up their own ideas \u2014 a retreat, a joint grant, an actual fun happy hour \u2014 and ask, hopefully, if you'll say yes.",
-  "choices": {
-   "A": "The retreat is a wonderful two days, full of laughter, and easily the best department bonding time in years.",
-   "B": "The grant proposal comes together beautifully on its own, and everyone's proud of what the team built together.",
-   "C": "Even without the budget, faculty appreciate the warm encouragement, and plan a smaller version themselves anyway."
-  }
- },
- "The Department Photo": {
-  "text": "Communications wants to feature your unusually happy department in a glossy piece \u2014 and honestly, everyone's a little delighted to be asked.",
-  "choices": {
-   "A": "The whole department shines in the piece, and it becomes something everyone proudly shares with their families.",
-   "B": "It goes well, and the folks not pictured are genuinely happy for their colleagues who were.",
-   "C": "Declining doesn't dim anyone's spirits \u2014 the department's good mood was never really about the camera anyway."
-  }
- },
- "A Wave of Volunteers": {
-  "text": "For once, too many faculty want to serve on committees \u2014 a wonderful problem, and one everyone handles with real grace.",
-  "choices": {
-   "A": "The lottery feels fair, and the people who don't get picked are genuinely happy for whoever did.",
-   "B": "The strong committee does great work, and the ones passed over cheer them on anyway.",
-   "C": "The extra seat means literally everyone gets included, and it becomes a lovely little department tradition."
-  }
- },
- "A Rare Vote of Trust": {
-  "text": "The Dean's office, delighted with you, hands over some small discretionary decisions \u2014 a genuine, warm show of confidence.",
-  "choices": {
-   "A": "Faculty are thrilled to see long-standing annoyances finally fixed, and thank you warmly.",
-   "B": "Nothing goes wrong, and the Dean's office is quietly proud of the trust they placed in you.",
-   "C": "Your associate chair blossoms with the responsibility, and becomes a genuinely great partner because of it."
-  }
- },
- "An Off-Book Ask": {
-  "text": "The Dean asks, kindly and privately, if you'd help smooth over a sensitive situation elsewhere \u2014 a sign of real trust, more than anything else.",
-  "choices": {
-   "A": "You handle it with real grace, and though nobody in your own department knows, it makes a quiet, genuine difference for someone else.",
-   "B": "The Dean appreciates the extra care, even while noting the paperwork, and trusts you all the more for it.",
-   "C": "Setting the boundary is respected, and the Dean's office admires you for knowing your own limits."
-  }
- },
- "The Speaking Slot": {
-  "text": "The Dean asks you to represent the college at an outside event \u2014 real visibility, and honestly, a nice vote of confidence in you.",
-  "choices": {
-   "A": "The room warms to your genuine advocacy, and it's the first time in years anyone's heard your department's case made so personally.",
-   "B": "It goes smoothly, and the Dean's office is quietly grateful for how well you represented everyone.",
-   "C": "The faculty member you send has the time of their life, and thanks you for years afterward."
-  }
- },
- "The Wrong Building": {
-  "text": "A mandatory seminar summons you to a sub-basement room that hasn't been used in decades \u2014 cozy in its own dusty way, and the ancient payphone still gives a dial tone. A nice little adventure.",
-  "choices": {
-   "A": "You complete the seminar alone in the quiet, and it's oddly peaceful.",
-   "B": "Facilities is delighted the old line still works, and sends someone right over, charmed by the discovery.",
-   "C": "Nobody checks, and nobody minds \u2014 it becomes a funny story you tell at parties."
-  }
- },
- "Form 27-C": {
-  "text": "Facilities returns your form asking for one that doesn't seem to exist anymore \u2014 a harmless little mix-up, the kind everyone has a good laugh about.",
-  "choices": {
-   "A": "Your hand-drawn version is accepted with a smile, and it becomes a nice office in-joke.",
-   "B": "It takes a little digging, but the facilities director is grateful you helped them clean up an old outdated stamp.",
-   "C": "You let the small request go, and honestly, it wasn't worth the fuss."
-  }
- },
- "The Duct": {
-  "text": "A cheerful ventilation contractor spends a few days working above your ceiling tile, friendly and a little mysterious about what exactly needs fixing.",
-  "choices": {
-   "A": "The technicians are a delight to chat with, even if their answers don't quite add up.",
-   "B": "The unplanned change of scenery in the conference room turns out to be a nice little break.",
-   "C": "The complaint is logged kindly, and the work wraps up on schedule anyway."
-  }
- },
- "The Photocopier Incident": {
-  "text": "The copier runs dry, and nobody's quite sure who's responsible \u2014 IT or the outdated number on the sticker \u2014 but everyone takes the mystery with good humor.",
-  "choices": {
-   "A": "The number's disconnected, but it makes for a nice shared joke around the office.",
-   "B": "IT and Facilities sort it out together, good-naturedly passing the ticket back and forth like a game.",
-   "C": "Buying toner out of pocket quietly solves it, and nobody makes a fuss either way."
-  }
- },
- "An Envelope, Unmarked": {
-  "text": "A mysterious envelope of parking-lot photos turns up with no note \u2014 odd, but more curious than alarming, and everyone enjoys speculating about it.",
-  "choices": {
-   "A": "Security takes it seriously and kindly, treating it like a fun little mystery to solve.",
-   "B": "It's filed away, mostly forgotten, no harm done.",
-   "C": "It becomes a beloved, silly department in-joke that outlasts the mystery itself."
-  }
- },
- "The Substitute Substitute": {
-  "text": "A mixed-up substitute shows up for the wrong meeting entirely \u2014 but everyone's a good sport about it, and it makes for a fun surprise.",
-  "choices": {
-   "A": "It turns into one of the best, most memorable meetings the department's had all year.",
-   "B": "They head upstairs cheerfully, and the meeting proceeds warmly as planned.",
-   "C": "The meeting's cancelled, and everyone has a good laugh about the mix-up afterward."
-  }
- },
- "Building Services Calls": {
-  "text": "A friendly notice says the bathroom faucet water shouldn't be used for now \u2014 no real explanation, but nobody's too worried, just mildly inconvenienced.",
-  "choices": {
-   "A": "The sign goes up, and everyone takes the small inconvenience in stride.",
-   "B": "Facilities gives a vague but kind answer, and everyone lets it go with a shrug.",
-   "C": "The new water cooler becomes an unexpectedly popular gathering spot."
-  }
- },
- "The Numbered Door": {
-  "text": "A quirky renumbering leaves a second office door that actually leads through the storage room to your own office \u2014 confusing, but kind of charming once everyone figures it out.",
-  "choices": {
-   "A": "It becomes a fun, harmless bit of department lore \u2014 nobody's really bothered, just amused.",
-   "B": "Facilities happily removes the extra label, and the mix-up becomes a funny story.",
-   "C": "The handwritten redirect sign is a charming little fix, and visitors get a kick out of it."
-  }
- },
- "The Interdepartmental Memo Loop": {
-  "text": "A friendly, slightly confusing memo loop arrives asking you to acknowledge something you never got \u2014 the kind of harmless bureaucratic tangle everyone chuckles about.",
-  "choices": {
-   "A": "You play along good-naturedly, and the loop closes without any real cost.",
-   "B": "Nobody can find the original, and everyone has a laugh about the whole absurd chain.",
-   "C": "You still haven't learned how interoffice mail works, and honestly, nobody minds that you let this one go."
-  }
- },
- "The Room on the Old Blueprints": {
-  "text": "Old blueprints reveal a small forgotten room \u2014 a delightful little discovery that has everyone curious and excited rather than worried.",
-  "choices": {
-   "A": "Facilities is charmed by the mystery too, and the eventual find \u2014 a dusty old storage space \u2014 becomes a fun department discovery.",
-   "B": "Leaving the mystery alone feels like its own quiet, satisfying kind of fun.",
-   "C": "The scuffed doorframe becomes a funny story, and facilities takes it in stride."
-  }
- },
- "A Simple Request for Water": {
-  "text": "A refill request for the water cooler gets a strangely formal question back \u2014 everyone finds the bureaucratic mix-up more funny than frustrating.",
-  "choices": {
-   "A": "The back-and-forth becomes a running joke, good-natured the whole way through.",
-   "B": "The detailed breakdown works, and everyone's grateful for cold water again.",
-   "C": "Hauling jugs yourself becomes a small, cheerful act of service everyone appreciates."
-  }
- },
- "The Server Closet Overheats": {
-  "text": "The internet drops mid-class when the server closet overheats \u2014 stressful for a moment, but the department pulls together warmly to fix it.",
-  "choices": {
-   "A": "Propping the door open with a fan works like a charm, and it becomes a proud little save.",
-   "B": "Everyone's remarkably understanding about the outage, and instructors improvise together with good humor.",
-   "C": "The Dean's office jumps in to help quickly, glad to be able to lend a hand."
-  }
- },
- "The Missing Name Plate": {
-  "text": "A new hire wants their name on the door, and discovering the university quietly stopped making plates years ago becomes a fun little challenge to solve together.",
-  "choices": {
-   "A": "Tracking down the old vendor turns into a nice bonding project with facilities.",
-   "B": "The quick, cheap plate arrives fast, and the new hire is genuinely delighted.",
-   "C": "Explaining the situation honestly, the new hire actually appreciates the transparency and laughs it off."
-  }
- },
- "No Process for This": {
-  "text": "An important visit reveals the department never actually had a room-booking process \u2014 a funny gap that everyone pitches in warmly to solve.",
-  "choices": {
-   "A": "The overnight system comes together with everyone's help, and it becomes a nice new department fixture.",
-   "B": "You handle it personally, and everyone's touched you took the extra effort.",
-   "C": "Your admin assistant builds something great, and the department makes sure to thank them properly for it."
-  }
- },
- "The Mystery Invoices": {
-  "text": "A few odd bills show up for services nobody remembers ordering \u2014 confusing, but it turns into an amusing collaborative mystery to solve rather than a real headache.",
-  "choices": {
-   "A": "Paying quietly and investigating later feels responsible, and the mystery becomes a fun ongoing joke.",
-   "B": "Two vendors back down right away, understanding and kind about the mix-up.",
-   "C": "The audit turns up a messy but harmless tangle, and everyone's glad to get it sorted out together."
-  }
- },
- "Lunch, Delayed": {
-  "text": "An elevator hiccup nearly derails a lunch for visiting reviewers \u2014 but a little improvising turns it into a charming, memorable moment instead.",
-  "choices": {
-   "A": "Carrying the sandwiches upstairs yourself gets genuine, warm laughs from the reviewers.",
-   "B": "Moving the meeting downstairs is smooth and nobody minds a bit.",
-   "C": "Even the delay is handled with such grace that the reviewers mention it fondly in their report."
-  }
- },
- "Endless Roof Faxes": {
-  "text": "The old fax machine spits out a backlog of cheerful roofing ads \u2014 a funny, harmless glitch everyone gets a kick out of.",
-  "choices": {
-   "A": "Letting it run becomes a fun little office event, complete with betting on how long it'll take.",
-   "B": "Unplugging it brings a satisfying quiet, met with relieved laughter.",
-   "C": "Calling one of the roofers turns out great \u2014 friendly people, and a fair price for a real fix."
-  }
- },
- "The Locked Supply Closet": {
-  "text": "A mystery padlock and a mismatched master key turn into a fun little scavenger hunt rather than a real hassle.",
-  "choices": {
-   "A": "Cutting the lock feels triumphant, and the printer paper inside gets a small round of applause.",
-   "B": "The wait is mild, and the eventual right key arriving feels like a nice little win.",
-   "C": "The other closet's old records turn out to be a genuinely delightful find for the accreditation binder."
-  }
- },
- "The Recurring Fire Drill": {
-  "text": "A third fire drill lands right during your meeting again \u2014 annoying timing, but everyone rolls with it warmly.",
-  "choices": {
-   "A": "Rescheduling again gets a fond, resigned laugh from everyone.",
-   "B": "Facilities' vague answer becomes a running joke.",
-   "C": "Holding the meeting outside on the lawn turns into one of the loveliest, most relaxed meetings of the year."
-  }
- },
- "The Directory Listing": {
-  "text": "The directory lists you as gone and your office as storage \u2014 a funny clerical mix-up nobody's actually bothered by.",
-  "choices": {
-   "A": "The correction goes through smoothly, and it becomes a fond little office story.",
-   "B": "Being \"invisible\" to a few mailing lists is a delightful, unexpected little perk.",
-   "C": "The framed printout becomes a beloved icebreaker for visitors."
-  }
- }
-};
-
-const COZY_ENDINGS = {
- "Not Renewed": "The Dean's office thanks you warmly for a genuinely good year and gently suggests it might be someone else's turn to lead next. Your colleagues throw you the send-off you actually deserve \u2014 stories, gratitude, and a standing invitation to stop by anytime. You leave the role exactly the way you started it: liked, and looking forward to what's next.",
- "Vote of No Confidence": "At the final meeting, the department decides, kindly and honestly, that new leadership might serve them better right now \u2014 and they say so with real warmth, thanking you for everything you gave the role. It doesn't feel like a loss so much as a group of people who care about each other being honest about what they need.",
- "Absorbed": "The department merges into a new School of Interdisciplinary Studies \u2014 and honestly, everyone ends up delighted by the bigger, friendlier community it becomes. Your old letterhead retires; your old colleagues don't go anywhere.",
- "The Dean's Office Calls": "The Dean's chief of staff calls, warm and genuinely impressed, to float an Associate Dean nomination. You navigated a real, complicated year with grace, and somehow everyone \u2014 faculty, staff, even the people you had to say hard things to \u2014 still considers you a friend. Whatever happens next, you've clearly built something people trust.",
- "You Return in the Fall": "The year wraps up the way most good years do \u2014 not perfectly, but warmly. Nobody's upset with you. Several people stop by just to say thanks. You'll be back at your desk in August, filing cabinet key still missing, looking forward to another year with people you've genuinely come to love working with.",
- "Running on Fumes": "You finish the year a little tired but genuinely fulfilled \u2014 still chair, department still whole, and surrounded by people who clearly have your back. You start a quiet list of things to try differently next year, mostly because you're already looking forward to it.",
- "Terminated With Cause": "The Provost's office, kindly and honestly, decides it's time for a change \u2014 and makes sure to say, more than once, how much they valued your effort. Your colleagues throw together an impromptu, heartfelt goodbye gathering before you've even cleared out your desk, and more than a few say they're not really saying goodbye, just see-you-soon.",
- "The Books Don't Close": "The department's finances need real, hands-on help, so a financial partner steps in to co-sign purchases for a while \u2014 and turns out to be genuinely lovely to work with. You're still Chair, just with a new teammate helping carry the load, and honestly, it's a relief to share it.",
- "The Department Revolts": "Faculty gently, but firmly, ask for real change \u2014 and the Dean's office steps in not to punish anyone, but to help the department heal. Difficult conversations happen, but they happen with care, and by the end, most people are just glad someone finally listened.",
- "Persona Non Grata": "It's a quiet kind of shift \u2014 meetings happen without you, decisions move on without waiting \u2014 but nobody's unkind about it, and a few people make a point of checking in warmly anyway. You're still Chair on paper, and still, as it turns out, someone people genuinely like having around."
-};
-
 // ---------------- ENDINGS ----------------
 const ZERO_ENDINGS = {
   dean: {
@@ -1974,19 +1396,24 @@ function renderStart(){
       <label>DEPARTMENT</label>
       <input id="deptNameInput" type="text" placeholder="e.g. Department of Comparative Literature" maxlength="50">
     </div>
-    <div class="cozy-toggle">
-      <input type="checkbox" id="cozyModeInput" ${STATE.cozyMode ? "checked" : ""}>
-      <label for="cozyModeInput">Turn on Cozy Chair Mode &mdash; same choices, kinder outcomes</label>
-    </div>
     <button class="continue-btn" id="beginBtn">BEGIN TERM &rarr;</button>
+    <div>
+      <button class="disclaimer-link" id="disclaimerBtn" type="button">Disclaimer</button>
+      <div class="disclaimer-box" id="disclaimerBox" style="display:none;">
+        ChairQuest is a silly game that was mostly generated by Claude. The notional author had never used Claude Code before, so he made this as part of learning how to interact with Claude Code. Any resemblances to anything are just artifacts from the language model.
+      </div>
+    </div>
   `;
   document.getElementById("beginBtn").onclick = () => {
     STATE.chairName = document.getElementById("chairNameInput").value.trim();
     STATE.deptName = document.getElementById("deptNameInput").value.trim();
-    STATE.cozyMode = document.getElementById("cozyModeInput").checked;
     STATE.week = 0;
     STATE.scenarios = shuffled(SCENARIOS).slice(0, STATE.totalWeeks);
     renderScenario();
+  };
+  document.getElementById("disclaimerBtn").onclick = () => {
+    const box = document.getElementById("disclaimerBox");
+    box.style.display = box.style.display === "none" ? "block" : "none";
   };
 }
 
@@ -2001,7 +1428,7 @@ function renderScenario(){
     ${renderLetterhead(`WEEK ${STATE.week + 1} OF ${STATE.scenarios.length}`)}
     ${renderGauges()}
     <div class="scene-title">${sc.title}</div>
-    <div class="scene-text">${cozyText(sc)}</div>
+    <div class="scene-text">${sc.text(STATE)}</div>
     <div class="choices" id="choiceList"></div>
     <div id="consequenceBox"></div>
     <button class="lowfreq-btn" id="lowFreqBtn">Experience a Low-Frequency Event</button>
@@ -2060,7 +1487,7 @@ function chooseOption(sc, choice){
   applyEffects(choice.effects);
   STATE.log.push({week: STATE.week+1, title: sc.title, choice: choice.label});
   evaluateAfterChoice();
-  renderConsequence(cozyResult(sc, choice));
+  renderConsequence(choice.result);
 }
 
 function renderBonusScenario(){
@@ -2070,7 +1497,7 @@ function renderBonusScenario(){
     ${renderLetterhead("A MATTER OUTSIDE THE AGENDA")}
     ${renderGauges()}
     <div class="scene-title">${sc.title}</div>
-    <div class="scene-text">${cozyText(sc)}</div>
+    <div class="scene-text">${sc.text(STATE)}</div>
     <div class="choices" id="choiceList"></div>
     <div id="consequenceBox"></div>
   `;
@@ -2089,7 +1516,7 @@ function chooseBonusOption(sc, choice){
   STATE.log.push({week: STATE.week+1, title: "[Bonus] " + sc.title, choice: choice.label});
   STATE.pendingBonus = null;
   evaluateAfterChoice();
-  renderConsequence(cozyResult(sc, choice));
+  renderConsequence(choice.result);
 }
 
 function pickLowFreqEvent(){
@@ -2117,7 +1544,7 @@ function renderLowFreqEvent(){
     ${renderLetterhead("LOW-FREQUENCY EVENT")}
     ${renderGauges()}
     <div class="scene-title">${ev.title}</div>
-    <div class="scene-text">${cozyText(ev)}</div>
+    <div class="scene-text">${ev.text(STATE)}</div>
     <div class="choices" id="choiceList"></div>
     <div id="consequenceBox"></div>
   `;
@@ -2136,7 +1563,7 @@ function chooseLowFreqOption(ev, choice){
   STATE.log.push({week: STATE.week+1, title: "[Low-Frequency] " + ev.title, choice: choice.label});
   STATE.pendingLowFreq = null;
   evaluateAfterChoice();
-  renderConsequence(cozyResult(ev, choice));
+  renderConsequence(choice.result);
 }
 
 function renderEnding(){
@@ -2146,7 +1573,7 @@ function renderEnding(){
   memo.innerHTML = `
     ${renderLetterhead(STATE.forcedEnding ? `TERM ENDED &mdash; WEEK ${STATE.week + 1}` : "END OF TERM")}
     <div class="end-title">${ending.title}</div>
-    <div class="scene-text">${cozyEndingText(ending)}</div>
+    <div class="scene-text">${ending.text}</div>
     <div class="end-stats">
       FINAL FIGURES &mdash; ${STAT_LABELS.pc}: ${s.pc} &middot; ${STAT_LABELS.bud}: ${s.bud} &middot; ${STAT_LABELS.mor}: ${s.mor} &middot; ${STAT_LABELS.dean}: ${s.dean}
     </div>
