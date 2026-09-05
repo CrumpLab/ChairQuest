@@ -126,6 +126,20 @@
     cursor:pointer;
   }
   .continue-btn:hover{ background:#2c4060; }
+  .lowfreq-btn{
+    margin-top:14px;
+    display:block;
+    width:100%;
+    background: transparent;
+    color: var(--oxblood);
+    border:1px dashed var(--oxblood);
+    padding: 8px 14px;
+    font-family:'Courier New',monospace;
+    font-size:11.5px;
+    letter-spacing:0.3px;
+    cursor:pointer;
+  }
+  .lowfreq-btn:hover{ background: rgba(122,46,46,0.08); }
   .start-screen h1{
     font-size: 24px; color: var(--navy); margin-bottom:4px;
   }
@@ -175,7 +189,10 @@ const STATE = {
   scenarios: [],
   forcedEnding: null,
   pendingBonus: null,
-  bonusFired: { pc:false, bud:false, mor:false, dean:false }
+  bonusFired: { pc:false, bud:false, mor:false, dean:false },
+  continuation: "advanceWeek",
+  usedLowFreq: [],
+  pendingLowFreq: null
 };
 
 function clamp(n){ return Math.max(0, Math.min(100, n)); }
@@ -913,6 +930,276 @@ function checkBonusTrigger(){
   return null;
 }
 
+// ---------------- LOW-FREQUENCY EVENTS ----------------
+// Optional, player-triggered side events. Never consume a week; mostly small,
+// surreal bureaucratic non-sequiturs, a few of which resolve as quiet little wins.
+const LOW_FREQUENCY_EVENTS = [
+{
+  title: "The Wrong Building",
+  text: (S) => `A mandatory training seminar summons you to Room 014-B. Room 014-B is in a sub-basement that hasn't appeared on any campus map since 1987, furnished entirely with abandoned office chairs and a single payphone that, when you pick it up, produces a dial tone.`,
+  choices: [
+    { label:"Attend anyway, alone, in the abandoned room.", tag:"A", effects:{mor:-2, pc:1},
+      result:"Nobody else finds the room either. You complete the seminar's online certificate anyway, alone in the dark, and technically remain in compliance." },
+    { label:"Use the working payphone to report the room itself.", tag:"B", effects:{dean:2, pc:2},
+      result:"Facilities is stunned the line still works and dispatches someone within the hour — mostly, you suspect, out of curiosity." },
+    { label:"Skip the seminar and quietly mark yourself as having attended.", tag:"C", effects:{pc:-3, dean:-2},
+      result:"Nobody checks. This does not make it feel like a victory." }
+  ]
+},
+{
+  title: "Form 27-C",
+  text: (S) => `Facilities returns your maintenance request stamped "INCORRECT FORM — RESUBMIT ON FORM 27-C." Form 27-C does not appear in the facilities portal, the campus forms library, or any drawer your admin assistant can locate.`,
+  choices: [
+    { label:"Hand-draw a reasonable facsimile of Form 27-C and submit that.", tag:"A", effects:{pc:2, dean:1},
+      result:"It is accepted without comment. You now suspect Form 27-C has never existed and never needed to." },
+    { label:"Escalate to the facilities director, demanding the form exist somewhere.", tag:"B", effects:{pc:-2, dean:-1},
+      result:"After two weeks, someone admits the form was retired in 2014 and nobody updated the stamp." },
+    { label:"Give up on the maintenance request entirely.", tag:"C", effects:{mor:-3},
+      result:"The leak, or whatever it was, remains unaddressed. You've made your peace with it." }
+  ]
+},
+{
+  title: "The Duct",
+  text: (S) => `A ventilation contractor spends three consecutive days working directly above your office ceiling tile, occasionally dropping a tool, and never once explaining what is actually wrong with the ducts.`,
+  choices: [
+    { label:"Ask directly, repeatedly, what the problem is.", tag:"A", effects:{pc:-1},
+      result:"You receive three different answers from three different technicians, none of which mention ducts." },
+    { label:"Relocate to a conference room for the duration and let it happen.", tag:"B", effects:{mor:2},
+      result:"It's a pleasant, unplanned change of scenery. The ducts, whatever their problem was, resolve themselves by Friday." },
+    { label:"File a formal complaint about the noise disrupting departmental work.", tag:"C", effects:{dean:1, mor:-1},
+      result:"The complaint is logged. The drilling continues on an identical schedule the following week regardless." }
+  ]
+},
+{
+  title: "The Photocopier Incident",
+  text: (S) => `The department photocopier runs dry mid-semester, and nobody can agree on who's actually responsible for it. IT insists it's a facilities-managed device; the service sticker on the machine itself lists a number that's been disconnected since at least two reorganizations ago.`,
+  choices: [
+    { label:"Call the number on the sticker anyway, just to see.", tag:"A", effects:{pc:-1},
+      result:"It rings twice and then plays a busy tone that sounds almost personally offended. You are exactly as informed as before." },
+    { label:"Escalate to IT and insist it's their problem to solve.", tag:"B", effects:{pc:2, dean:-1},
+      result:"IT eventually agrees to 'look into ownership,' which turns out to mean opening a ticket that reassigns itself to Facilities within the hour." },
+    { label:"Just buy toner out of departmental petty cash and stop asking.", tag:"C", effects:{bud:-3, mor:3},
+      result:"Nobody signs off on it, nobody notices, and the copier works again by that afternoon — proof that some problems are best solved quietly." }
+  ]
+},
+{
+  title: "An Envelope, Unmarked",
+  text: (S) => `A manila envelope appears on your desk containing seventeen photographs of the same empty parking lot, each taken from a slightly different angle, with no note, return address, or explanation attached.`,
+  choices: [
+    { label:"Report it to campus security, just in case.", tag:"A", effects:{dean:1},
+      result:"An officer takes the envelope seriously, files a report, and admits, off the record, that this isn't the first one of these he's seen this year." },
+    { label:"Quietly file it in a drawer and never speak of it again.", tag:"B", effects:{mor:-1},
+      result:"It's probably nothing. You are approximately eighty percent sure of this." },
+    { label:"Tape the photos up in the break room as a joke.", tag:"C", effects:{mor:3},
+      result:"It becomes an unexpected, and unexplainable, department in-joke that outlasts the mystery itself." }
+  ]
+},
+{
+  title: "The Substitute Substitute",
+  text: (S) => `The scheduled substitute for a canceled meeting fails to appear, so someone arranges a substitute for the substitute — who arrives, sits down, and turns out to have been hired to cover an entirely different department's meeting one floor up.`,
+  choices: [
+    { label:"Let them stay and see what happens.", tag:"A", effects:{mor:2},
+      result:"It's, against all odds, the most productive and entertaining meeting your department has had all semester." },
+    { label:"Redirect them upstairs immediately.", tag:"B", effects:{pc:1},
+      result:"Order is restored. The meeting proceeds exactly as unremarkably as originally scheduled." },
+    { label:"Cancel the meeting altogether out of sheer confusion.", tag:"C", effects:{mor:-2, dean:-1},
+      result:"Nothing on the agenda gets addressed, and everyone quietly agrees never to mention this." }
+  ]
+},
+{
+  title: "Building Services Calls",
+  text: (S) => `Building services phones, unprompted, to inform you that the department's water pressure is "within acceptable parameters for a building of this classification" — alarming mainly because nobody had asked, or noticed a problem, at all.`,
+  choices: [
+    { label:"Thank them and ask no further questions.", tag:"A", effects:{mor:-1},
+      result:"You will now, for the rest of the year, notice the water pressure constantly." },
+    { label:"Ask what prompted the call in the first place.", tag:"B", effects:{dean:-1},
+      result:"The representative pauses for a long moment and says only that it's 'part of a broader initiative.'" },
+    { label:"Request they put the reassurance in writing for your files.", tag:"C", effects:{pc:2},
+      result:"It arrives a week later, notarized, for reasons nobody at building services can fully explain either." }
+  ]
+},
+{
+  title: "The Numbered Door",
+  text: (S) => `Your office door is renumbered overnight from 214 to 214-A, apparently to make room for a new door labeled 214-B — a door that, as far as anyone can determine, opens onto a wall.`,
+  choices: [
+    { label:"Test the door yourself to be sure.", tag:"A", effects:{mor:1},
+      result:"It is, in fact, a wall. You feel strangely satisfied to have confirmed this personally." },
+    { label:"Report the phantom door to facilities.", tag:"B", effects:{dean:1, pc:-1},
+      result:"A work order is opened, assigned, and closed the same day with the note 'no action required.'" },
+    { label:"Adopt 214-B as an ironic department landmark.", tag:"C", effects:{mor:3},
+      result:"Visitors are now, semi-officially, directed to 'the wall past the Chair's office' as a meeting point." }
+  ]
+},
+{
+  title: "The Interdepartmental Memo Loop",
+  text: (S) => `You receive a memo asking you to acknowledge receipt of a memo you never received, referencing an attachment that its own footer describes as "intentionally left blank."`,
+  choices: [
+    { label:"Acknowledge receipt of the memo you never got, for the sake of peace.", tag:"A", effects:{pc:-1},
+      result:"The loop, whatever it was, appears to close. You feel you have lied to a filing system, and it does not feel great." },
+    { label:"Reply asking to actually receive the original memo first.", tag:"B", effects:{dean:-1},
+      result:"Nobody can locate it. The request is, itself, filed." },
+    { label:"Ignore it completely.", tag:"C", effects:{mor:1},
+      result:"Nothing happens. Nothing continues to happen. It is, on reflection, the correct call." }
+  ]
+},
+{
+  title: "The Card Reader",
+  text: (S) => `Your ID badge stops opening your own office door, but continues, inexplicably, to unlock a storage closet three buildings away that you did not previously know existed.`,
+  choices: [
+    { label:"Investigate the mystery closet properly.", tag:"A", effects:{pc:2, mor:1},
+      result:"It's full of decommissioned overhead projectors and, oddly, a working espresso machine you claim for the department immediately." },
+    { label:"Report only the door malfunction and ignore the closet.", tag:"B", effects:{dean:1},
+      result:"Facilities fixes your door within the day. The closet access remains, unexplained and unrevoked." },
+    { label:"Say nothing and quietly keep using the closet as a private office.", tag:"C", effects:{mor:2, pc:-1},
+      result:"It becomes the best-kept, least-official secret you have this year." }
+  ]
+},
+{
+  title: "A Question About Pigeons",
+  text: (S) => `Facilities sends a formal written inquiry asking whether your department has been "feeding, sheltering, or otherwise encouraging" the pigeons that have taken up residence in the courtyard — a practice you were not previously aware was prohibited, permitted, or in fact happening.`,
+  choices: [
+    { label:"Deny everything in writing, truthfully.", tag:"A", effects:{dean:1},
+      result:"The matter is closed. The pigeons, uninvolved in the correspondence, remain." },
+    { label:"Investigate which faculty member has actually been feeding them.", tag:"B", effects:{mor:-2, pc:1},
+      result:"You find out. You wish you hadn't had to have that particular conversation." },
+    { label:"Lean into it and put out an official, if unauthorized, bird feeder.", tag:"C", effects:{mor:3, dean:-2},
+      result:"Morale among the pigeon-adjacent faculty soars. Facilities is not amused." }
+  ]
+},
+{
+  title: "The Vending Machine Refund",
+  text: (S) => `The break-room vending machine begins spontaneously dispensing exact, unsolicited refunds to anyone who has ever lost money in it — some transactions dating back, apparently, several years — in an order nobody can explain.`,
+  choices: [
+    { label:"Let it run its course and collect your own decade-old refund.", tag:"A", effects:{mor:2},
+      result:"You get one dollar and twenty-five cents back for a bag of pretzels you have genuinely forgotten losing money on in 2019." },
+    { label:"Report the malfunction before someone empties it entirely.", tag:"B", effects:{dean:1, mor:-1},
+      result:"Vending services shuts it down mid-refund, to audible groans from the break room." },
+    { label:"Say nothing and let your whole department enjoy the windfall.", tag:"C", effects:{mor:4, bud:-1},
+      result:"It's a strange, tiny, collectively shared bit of joy, and you have no intention of reporting it." }
+  ]
+},
+{
+  title: "The Server Room Temperature",
+  text: (S) => `IT reports the server closet has been running four degrees too cold for reasons "under investigation since 2019," and asks whether your department would like to formally file a complaint about a temperature discrepancy nobody had previously noticed or minded.`,
+  choices: [
+    { label:"File the complaint, for the sake of the paper trail.", tag:"A", effects:{pc:1},
+      result:"It joins an investigation that has, by IT's own admission, been open for five years without resolution." },
+    { label:"Decline, and let the mystery persist.", tag:"B", effects:{mor:1},
+      result:"It remains four degrees too cold, and now that you think about it, comfortably so." },
+    { label:"Ask to see the original 2019 investigation report out of curiosity.", tag:"C", effects:{pc:2, dean:-1},
+      result:"It exists, is nine pages long, and concludes only with 'to be continued.'" }
+  ]
+},
+{
+  title: "The Wrong Name Tag",
+  text: (S) => `Your new institutional ID badge arrives bearing someone else's name, photo, and title. Correcting it, per HR, requires presenting valid identification matching the name currently printed on the badge.`,
+  choices: [
+    { label:"Push HR through the actual correction process, however illogical.", tag:"A", effects:{pc:-2},
+      result:"It takes six weeks and two escalations, but you do eventually get a badge with your own name on it." },
+    { label:"Just start using the other name for a while and see what happens.", tag:"B", effects:{mor:2},
+      result:"Nobody at any door checkpoint on campus notices or cares. This is somehow the most unsettling part." },
+    { label:"Laminate it as-is and treat it as a departmental artifact.", tag:"C", effects:{mor:2, pc:-1},
+      result:"It becomes a fixture of department lore, passed around at parties, never actually replaced." }
+  ]
+},
+{
+  title: "The Seminar Room Ghost Booking",
+  text: (S) => `The good seminar room shows as booked every Thursday at 4pm indefinitely, by a department that was formally dissolved six years ago, for a recurring meeting nobody currently at the university can identify or explain.`,
+  choices: [
+    { label:"Show up at 4pm one Thursday to see who, if anyone, is there.", tag:"A", effects:{mor:1},
+      result:"Nobody is there. The room is simply, perpetually, reserved by no one, for nothing, forever." },
+    { label:"Have the registrar force-cancel the phantom booking.", tag:"B", effects:{dean:1, pc:1},
+      result:"It takes surprising effort to cancel a meeting that, on paper, doesn't officially not exist. But it works." },
+    { label:"Just work around it and use a worse room on Thursdays.", tag:"C", effects:{mor:-2},
+      result:"It's a small, weekly inconvenience that everyone has simply decided to live with." }
+  ]
+},
+{
+  title: "A Box, Redirected",
+  text: (S) => `A shipment addressed to your department arrives containing forty reams of a paper size no printer on campus supports, along with an invoice addressed to an entirely different university in another state.`,
+  choices: [
+    { label:"Refuse the shipment and send it back.", tag:"A", effects:{bud:1},
+      result:"It's gone, along with the mystery of who was actually supposed to receive forty reams of A3+." },
+    { label:"Keep it — surely it's useful for something eventually.", tag:"B", effects:{bud:-1, mor:1},
+      result:"It sits in a supply closet indefinitely, at least giving everyone something to complain about together." },
+    { label:"Track down the correct recipient university and mail it onward yourself.", tag:"C", effects:{pc:2, bud:-2},
+      result:"Someone three states away is deeply, genuinely grateful, and you've made a strange new professional contact out of it." }
+  ]
+},
+{
+  title: "The Elevator Announcement",
+  text: (S) => `The building elevator begins announcing floor numbers in a language none of your faculty can identify. Facilities' only response, so far, is that "a ticket has been filed."`,
+  choices: [
+    { label:"Take the stairs indefinitely rather than deal with it.", tag:"A", effects:{mor:-1},
+      result:"It's mildly inconvenient and, on the plus side, better for everyone's daily step count." },
+    { label:"Get a faculty linguist to identify the language for fun.", tag:"B", effects:{mor:2, pc:1},
+      result:"Turns out it's a very formal, archaic dialect nobody can quite place, which somehow makes it funnier, not less strange." },
+    { label:"Escalate the ticket personally to get it actually fixed.", tag:"C", effects:{dean:1},
+      result:"It's fixed within a week, and the elevator now announces floors in English, disappointingly." }
+  ]
+},
+{
+  title: "The Late Fax",
+  text: (S) => `A fax machine nobody remembers your department owning receives a single incoming page, sent from a number with a disconnected area code, containing what appears to be last semester's parking permit renewal form.`,
+  choices: [
+    { label:"Try faxing back to the number just to see what happens.", tag:"A", effects:{mor:1},
+      result:"Nothing happens. The number, as advertised, no longer exists — and somehow that's the most satisfying possible outcome." },
+    { label:"Forward it to parking services as instructed by the form itself.", tag:"B", effects:{pc:1},
+      result:"Parking services has no idea what to do with a fax in the current year, and neither, really, do you." },
+    { label:"Unplug the fax machine and never think about it again.", tag:"C", effects:{mor:-1},
+      result:"It's the simplest possible resolution. You will, of course, think about it again anyway." }
+  ]
+},
+{
+  title: "The Locked Supply Closet",
+  text: (S) => `The office supply closet turns up locked, with a padlock nobody in the department recognizes or remembers installing. When the master key finally arrives from facilities, it opens a completely different closet instead.`,
+  choices: [
+    { label:"Cut the padlock off yourself and reclaim the closet.", tag:"A", effects:{pc:1, bud:1},
+      result:"Inside: exactly what you expected, a modest stash of printer paper — mildly triumphant to recover regardless." },
+    { label:"Wait for facilities to sort out the correct key eventually.", tag:"B", effects:{mor:-1},
+      result:"It takes another six weeks. The correct key, when it arrives, opens the closet on the first try." },
+    { label:"Investigate what's actually inside the other closet the key opens instead.", tag:"C", effects:{mor:2, pc:1},
+      result:"It's full of decades-old departmental records nobody knew still existed — genuinely useful, oddly enough, for an accreditation binder." }
+  ]
+},
+{
+  title: "The Recurring Fire Drill",
+  text: (S) => `A fire alarm test is scheduled for your building for the third time this semester — always during your department meeting, always described by facilities, without elaboration, as "routine and unrelated to the previous ones."`,
+  choices: [
+    { label:"Reschedule your meeting around the drill, again.", tag:"A", effects:{mor:-2},
+      result:"You've now effectively let a fire alarm dictate your department's calendar for the semester." },
+    { label:"Ask facilities, pointedly, whether these are actually related.", tag:"B", effects:{pc:1},
+      result:"You get a very long pause, and then a very short 'no comment.'" },
+    { label:"Hold the meeting anyway, outside, on the lawn, during the drill.", tag:"C", effects:{mor:4},
+      result:"It's, unexpectedly, one of the best department meetings of the year — nobody checks their email once." }
+  ]
+},
+{
+  title: "The Directory Listing",
+  text: (S) => `The university directory lists your position as vacant, your extension as disconnected, and your office as "currently used for storage" — despite your continued, uninterrupted, physical presence in it every single day.`,
+  choices: [
+    { label:"Get IT to correct the listing, formally.", tag:"A", effects:{dean:1},
+      result:"It's fixed within the week, replaced by a listing that is, this time, at least accurate." },
+    { label:"Leave it and enjoy being functionally invisible to campus-wide mass emails.", tag:"B", effects:{mor:2},
+      result:"You discover, with some delight, that being listed as 'vacant' means you're excluded from at least four mandatory distribution lists." },
+    { label:"Print out the incorrect listing and frame it in your office as a joke.", tag:"C", effects:{mor:2, pc:1},
+      result:"It becomes a genuinely good icebreaker for every visitor who sees it and asks if you're haunting your own office." }
+  ]
+},
+{
+  title: "A Compliment, Misfiled",
+  text: (S) => `A glowing, specific letter of praise for your department's teaching arrives in interoffice mail, addressed to the Dean, but somehow routed to you first, with a sticky note attached reading only "FYI???"`,
+  choices: [
+    { label:"Forward it along to the Dean as intended, unopened further.", tag:"A", effects:{dean:2},
+      result:"It arrives a little late, and the Dean appreciates it regardless — and separately appreciates that you didn't sit on it." },
+    { label:"Read it fully, then forward it — and share the good news with the department first.", tag:"B", effects:{mor:4, dean:1},
+      result:"It's a genuinely lovely thing to read aloud at the next meeting, and morale gets a real, if modest, boost from hearing it." },
+    { label:"Quietly keep a copy for your own file before sending the original on.", tag:"C", effects:{pc:2},
+      result:"It's a small, private bit of ammunition for your own next annual review, and nobody need ever know." }
+  ]
+}
+];
+
 // ---------------- ENDINGS ----------------
 const ZERO_ENDINGS = {
   dean: {
@@ -1056,6 +1343,7 @@ function renderScenario(){
     <div class="scene-text">${sc.text(STATE)}</div>
     <div class="choices" id="choiceList"></div>
     <div id="consequenceBox"></div>
+    <button class="lowfreq-btn" id="lowFreqBtn">Experience a Low-Frequency Event</button>
   `;
   const list = document.getElementById("choiceList");
   sc.choices.forEach((c, idx) => {
@@ -1065,6 +1353,7 @@ function renderScenario(){
     btn.onclick = () => chooseOption(sc, c, idx);
     list.appendChild(btn);
   });
+  document.getElementById("lowFreqBtn").onclick = startLowFreqEvent;
 }
 
 function evaluateAfterChoice(){
@@ -1075,6 +1364,7 @@ function evaluateAfterChoice(){
 function nextButtonLabel(){
   if(STATE.forcedEnding) return "SEE WHAT HAPPENS";
   if(STATE.pendingBonus) return "ONE MORE THING";
+  if(STATE.continuation === "returnToWeek") return "BACK TO THE WEEK";
   return "NEXT WEEK";
 }
 
@@ -1083,24 +1373,31 @@ function advanceAfterChoice(){
     renderEnding();
   } else if(STATE.pendingBonus){
     renderBonusScenario();
+  } else if(STATE.continuation === "returnToWeek"){
+    STATE.continuation = "advanceWeek";
+    renderScenario();
   } else {
     STATE.week += 1;
     renderScenario();
   }
 }
 
-function chooseOption(sc, choice){
-  applyEffects(choice.effects);
-  STATE.log.push({week: STATE.week+1, title: sc.title, choice: choice.label});
-  evaluateAfterChoice();
-
+function renderConsequence(result){
   document.getElementById("choiceList").innerHTML = "";
   document.getElementById("consequenceBox").innerHTML = `
     ${renderGauges()}
-    <div class="consequence">${choice.result}</div>
+    <div class="consequence">${result}</div>
     <button class="continue-btn" id="nextBtn">${nextButtonLabel()} &rarr;</button>
   `;
   document.getElementById("nextBtn").onclick = advanceAfterChoice;
+}
+
+function chooseOption(sc, choice){
+  STATE.continuation = "advanceWeek";
+  applyEffects(choice.effects);
+  STATE.log.push({week: STATE.week+1, title: sc.title, choice: choice.label});
+  evaluateAfterChoice();
+  renderConsequence(choice.result);
 }
 
 function renderBonusScenario(){
@@ -1129,14 +1426,54 @@ function chooseBonusOption(sc, choice){
   STATE.log.push({week: STATE.week+1, title: "[Bonus] " + sc.title, choice: choice.label});
   STATE.pendingBonus = null;
   evaluateAfterChoice();
+  renderConsequence(choice.result);
+}
 
-  document.getElementById("choiceList").innerHTML = "";
-  document.getElementById("consequenceBox").innerHTML = `
+function pickLowFreqEvent(){
+  if(STATE.usedLowFreq.length >= LOW_FREQUENCY_EVENTS.length){
+    STATE.usedLowFreq = [];
+  }
+  const available = LOW_FREQUENCY_EVENTS
+    .map((_, i) => i)
+    .filter(i => !STATE.usedLowFreq.includes(i));
+  const idx = available[Math.floor(Math.random() * available.length)];
+  STATE.usedLowFreq.push(idx);
+  return LOW_FREQUENCY_EVENTS[idx];
+}
+
+function startLowFreqEvent(){
+  STATE.continuation = "returnToWeek";
+  STATE.pendingLowFreq = pickLowFreqEvent();
+  renderLowFreqEvent();
+}
+
+function renderLowFreqEvent(){
+  const ev = STATE.pendingLowFreq;
+  const memo = document.getElementById("memo");
+  memo.innerHTML = `
+    ${renderLetterhead("LOW-FREQUENCY EVENT")}
     ${renderGauges()}
-    <div class="consequence">${choice.result}</div>
-    <button class="continue-btn" id="nextBtn">${nextButtonLabel()} &rarr;</button>
+    <div class="scene-title">${ev.title}</div>
+    <div class="scene-text">${ev.text(STATE)}</div>
+    <div class="choices" id="choiceList"></div>
+    <div id="consequenceBox"></div>
   `;
-  document.getElementById("nextBtn").onclick = advanceAfterChoice;
+  const list = document.getElementById("choiceList");
+  ev.choices.forEach((c) => {
+    const btn = document.createElement("button");
+    btn.className = "choice-btn";
+    btn.innerHTML = `<span class="tag">[${c.tag}]</span>${c.label}`;
+    btn.onclick = () => chooseLowFreqOption(ev, c);
+    list.appendChild(btn);
+  });
+}
+
+function chooseLowFreqOption(ev, choice){
+  applyEffects(choice.effects);
+  STATE.log.push({week: STATE.week+1, title: "[Low-Frequency] " + ev.title, choice: choice.label});
+  STATE.pendingLowFreq = null;
+  evaluateAfterChoice();
+  renderConsequence(choice.result);
 }
 
 function renderEnding(){
@@ -1159,6 +1496,9 @@ function renderEnding(){
     STATE.forcedEnding = null;
     STATE.pendingBonus = null;
     STATE.bonusFired = { pc:false, bud:false, mor:false, dean:false };
+    STATE.continuation = "advanceWeek";
+    STATE.usedLowFreq = [];
+    STATE.pendingLowFreq = null;
     renderStart();
   };
 }
