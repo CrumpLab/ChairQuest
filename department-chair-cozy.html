@@ -74,6 +74,12 @@
   }
   .gauge-fill.low{ background: var(--oxblood); }
   .gauge-fill.mid{ background: var(--manila); }
+  .gauge-delta{
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .gauge-delta.up{ color: #3f7a4a; }
+  .gauge-delta.down{ color: var(--oxblood); }
   .week{
     font-family:'Courier New',monospace; font-size:12px; color:#5a5340;
     text-align:right; margin-bottom:6px;
@@ -1990,18 +1996,26 @@ function gaugeClass(v){
   return "";
 }
 
-function renderGauges(){
-  let html = `<div class="gauges">`;
+function renderGauges(deltas){
+  let html = `<div class="gauges" id="gaugesBox">`;
   for(const k of ["pc","bud","mor","dean"]){
     const v = STATE.stats[k];
+    const d = deltas ? deltas[k] : 0;
+    const deltaHtml = d ? ` <span class="gauge-delta ${d > 0 ? "up" : "down"}">(${d > 0 ? "+" : ""}${d})</span>` : "";
     html += `
       <div class="gauge-row">
-        <div class="gauge-label"><span>${STAT_LABELS[k]}</span><span>${v}</span></div>
+        <div class="gauge-label"><span>${STAT_LABELS[k]}</span><span>${v}${deltaHtml}</span></div>
         <div class="gauge-track"><div class="gauge-fill ${gaugeClass(v)}" style="width:${v}%"></div></div>
       </div>`;
   }
   html += `</div>`;
   return html;
+}
+
+function computeDeltas(before){
+  const d = {};
+  for(const k in STATE.stats){ d[k] = STATE.stats[k] - before[k]; }
+  return d;
 }
 
 function renderLetterhead(sub){
@@ -2113,12 +2127,13 @@ function advanceAfterChoice(){
   }
 }
 
-function renderConsequence(result){
+function renderConsequence(result, deltas){
   document.getElementById("choiceList").innerHTML = "";
   const lowFreqBtn = document.getElementById("lowFreqBtn");
   if(lowFreqBtn) lowFreqBtn.style.display = "none";
+  const gaugesBox = document.getElementById("gaugesBox");
+  if(gaugesBox) gaugesBox.outerHTML = renderGauges(deltas);
   document.getElementById("consequenceBox").innerHTML = `
-    ${renderGauges()}
     <div class="consequence">${result}</div>
     <button class="continue-btn" id="nextBtn">${nextButtonLabel()} &rarr;</button>
   `;
@@ -2127,10 +2142,11 @@ function renderConsequence(result){
 
 function chooseOption(sc, choice){
   STATE.continuation = "advanceWeek";
+  const before = {...STATE.stats};
   applyEffects(choice.effects);
   STATE.log.push({week: STATE.week+1, title: sc.title, choice: choice.label});
   evaluateAfterChoice();
-  renderConsequence(cozyResult(sc, choice));
+  renderConsequence(cozyResult(sc, choice), computeDeltas(before));
 }
 
 function renderBonusScenario(){
@@ -2155,11 +2171,12 @@ function renderBonusScenario(){
 }
 
 function chooseBonusOption(sc, choice){
+  const before = {...STATE.stats};
   applyEffects(choice.effects);
   STATE.log.push({week: STATE.week+1, title: "[Bonus] " + sc.title, choice: choice.label});
   STATE.pendingBonus = null;
   evaluateAfterChoice();
-  renderConsequence(cozyResult(sc, choice));
+  renderConsequence(cozyResult(sc, choice), computeDeltas(before));
 }
 
 function pickLowFreqEvent(){
@@ -2202,11 +2219,12 @@ function renderLowFreqEvent(){
 }
 
 function chooseLowFreqOption(ev, choice){
+  const before = {...STATE.stats};
   applyEffects(choice.effects);
   STATE.log.push({week: STATE.week+1, title: "[Low-Frequency] " + ev.title, choice: choice.label});
   STATE.pendingLowFreq = null;
   evaluateAfterChoice();
-  renderConsequence(cozyResult(ev, choice));
+  renderConsequence(cozyResult(ev, choice), computeDeltas(before));
 }
 
 function renderEnding(){
