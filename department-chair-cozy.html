@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Office of the Chair</title>
 <style>
   :root{
@@ -166,10 +167,11 @@
   }
   .field-row input{
     font-family: Georgia, serif;
-    font-size:15px;
+    font-size:16px;
     padding:7px 9px;
     border:1px solid var(--navy);
     background:#fdfaf0;
+    width:100%;
   }
   .end-title{
     font-size:21px; color:var(--oxblood); margin-bottom:6px;
@@ -204,6 +206,41 @@
     font-size:12px;
     color:#463f2f;
     line-height:1.6;
+  }
+
+  @media (max-width: 600px){
+    .desk{
+      margin: 12px auto 32px;
+      padding: 0 8px;
+    }
+    .memo{
+      padding: 18px 16px 16px;
+    }
+    .letterhead{
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .letterhead .stamp{
+      text-align:left;
+      white-space:normal;
+    }
+    .gauges{
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .scene-title{ font-size: 16px; }
+    .scene-text, .consequence{ font-size: 15px; }
+    .choice-btn{
+      font-size: 14px;
+      padding: 12px 12px;
+    }
+    .start-screen h1{ font-size: 21px; }
+    .continue-btn, .lowfreq-btn{
+      width: 100%;
+      text-align: center;
+    }
+    .end-title{ font-size: 19px; }
   }
 </style>
 </head>
