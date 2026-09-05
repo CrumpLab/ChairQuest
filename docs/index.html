@@ -105,8 +105,9 @@
   }
   .choice-btn:active{ transform: translateY(1px); }
   .consequence{
-    font-family:'Courier New',monospace;
-    font-size:12px;
+    font-family: Georgia, serif;
+    font-size:15.5px;
+    line-height:1.55;
     color: var(--navy);
     margin-top:14px;
     border-top: 1px dashed var(--line);
@@ -547,6 +548,9 @@ const SCENARIOS = [
     { label:"Decline for now, citing the governance complexity and thin faculty bandwidth.", tag:"B",
       effects:{dean:-5, mor:4},
       result:"Faculty are relieved not to take on more. The Dean's office notes you passed on a visibility opportunity." },
+    { label:"Counter-propose a smaller joint certificate instead of a full degree program.", tag:"C",
+      effects:{pc:3, dean:2, mor:1},
+      result:"It's a modest version of the idea, which is exactly why both sides can actually agree to it." },
     { label:"Push through every tedious cross-institution detail yourself — financial-aid articulation, accreditation paperwork, the revenue-sharing formula — to lock in a real cut of the joint tuition.", tag:"D",
       effects:{bud:9, mor:-6, pc:-4},
       result:"Six months of committee calls and paperwork later, the revenue-sharing formula is signed and starts padding your budget for real. You're running on fumes by the end of it, and two other things that needed your attention this whole time — a grievance, a curriculum review — piled up untouched while you weren't looking." }
@@ -1435,6 +1439,8 @@ function advanceAfterChoice(){
 
 function renderConsequence(result){
   document.getElementById("choiceList").innerHTML = "";
+  const lowFreqBtn = document.getElementById("lowFreqBtn");
+  if(lowFreqBtn) lowFreqBtn.style.display = "none";
   document.getElementById("consequenceBox").innerHTML = `
     ${renderGauges()}
     <div class="consequence">${result}</div>
