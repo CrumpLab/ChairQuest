@@ -211,7 +211,10 @@ const SCENARIOS = [
       result:"Faculty appreciate that you're not lurching toward change. The Dean's office barely notices you." },
     { label:"Quietly ask three senior faculty what they actually want before writing anything.", tag:"C",
       effects:{pc:8, mor:8, dean:-2},
-      result:"Faculty are flattered to be consulted. The Dean's office grumbles about the delay." }
+      result:"Faculty are flattered to be consulted. The Dean's office grumbles about the delay." },
+    { label:"Put the memo aside and track down a locksmith for that filing cabinet first.", tag:"D",
+      effects:{dean:-6, pc:-3},
+      result:"The locksmith never picks up the phone. You waste two mornings walking the block trying to find the shop's actual address, only to discover it's been closed indefinitely over a health and safety violation. The memo goes in late, and the cabinet stays locked." }
   ]
 },
 {
@@ -226,7 +229,10 @@ const SCENARIOS = [
       result:"Faculty feel you have their back. The Dean's office quietly flags the department as 'resistant to change.'" },
     { label:"Broker a compromise: pilot the gateway course for two years, review the data together.", tag:"C",
       effects:{pc:6, mor:3, dean:3, bud:-3},
-      result:"Nobody is thrilled, but nobody walks out of the meeting either. You've bought time — and spent a favor doing it." }
+      result:"Nobody is thrilled, but nobody walks out of the meeting either. You've bought time — and spent a favor doing it." },
+    { label:"Take an urgent call from the Provost about an unrelated crisis instead of sitting in on the vote.", tag:"D",
+      effects:{pc:-3, dean:-2, mor:-4},
+      result:"By the time you're off the phone, the vote is moot: the committee chair rejected both proposals outright over formatting issues with the submitted documents. Nothing is decided, and both factions quietly blame you for not being in the room." }
   ]
 },
 {
@@ -241,7 +247,10 @@ const SCENARIOS = [
       result:"Alvarez's supporters are grateful. A colleague files a quiet complaint that you 'influenced the process.'" },
     { label:"Ask the Dean's office to order a fifth, independent external letter before the vote.", tag:"C",
       effects:{dean:5, bud:-4, mor:-2},
-      result:"The delay irritates everyone equally, which — in a strange way — is its own kind of fairness." }
+      result:"The delay irritates everyone equally, which — in a strange way — is its own kind of fairness." },
+    { label:"Since Alvarez's subfield is well outside your own, hold forth instead on the general vagaries and biases of external review.", tag:"D",
+      effects:{pc:-3, mor:-3},
+      result:"Half the room nods along, relieved someone finally said it out loud. The other half hears a veiled shot at their own scholarship and bristles — you've managed to insult exactly the faculty you weren't talking about." }
   ]
 },
 {
@@ -256,12 +265,15 @@ const SCENARIOS = [
       result:"Faculty appreciate you not scapegoating them. The Dean's office notes you 'pushed back on accountability.'" },
     { label:"Launch a joint recruitment push with career services, promising results next year.", tag:"C",
       effects:{bud:-5, pc:5, dean:3, mor:3},
-      result:"It costs money you don't fully have, but it buys goodwill on both sides while you wait to see if it works." }
+      result:"It costs money you don't fully have, but it buys goodwill on both sides while you wait to see if it works." },
+    { label:"Ask an AI tool to draft the memo overnight and send it in without time to review it closely.", tag:"D",
+      effects:{dean:-7, pc:-5},
+      result:"The memo reads impressively right up until someone in the Dean's office notices it cites a retention study that doesn't exist and recommends launching a 'micro-credential in synergy studies' your department has never taught. It gets forwarded around as a cautionary tale before you even hear about it." }
   ]
 },
 {
   title: "A Grievance Over Overload",
-  text: (S) => `Three adjunct instructors, backed by the union, have filed a grievance: they were assigned a fourth course this semester without the contractually required advance notice or compensation bump. HR wants your account of what happened by end of day.`,
+  text: (S) => `Three adjunct instructors, backed by the union, have filed a grievance: they were assigned a fourth course this semester without the contractually required advance notice or compensation bump. The Associate Dean wants your account of what happened by end of day.`,
   choices: [
     { label:"Acknowledge the error immediately and adjust their pay retroactively.", tag:"A",
       effects:{bud:-6, mor:8, dean:-3},
@@ -286,7 +298,10 @@ const SCENARIOS = [
       result:"The review committee appreciates the tone. Some faculty feel you 'negotiated with the people trying to close us.'" },
     { label:"Quietly reach out to alumni and local employers for letters of support before the hearing.", tag:"C",
       effects:{pc:4, dean:4, bud:1},
-      result:"External validation lands well with the committee, and costs you almost nothing politically." }
+      result:"External validation lands well with the committee, and costs you almost nothing politically." },
+    { label:"Blame the administration's opaque budget data for making real viability planning impossible, and rally the other flagged chairs to make the case together.", tag:"D",
+      effects:{pc:8, mor:4, dean:-8},
+      result:"The other two flagged chairs turn out to have been quietly furious about the same missing cost data for years, and a joint letter reaches the Provost within the week — this is bigger than any one department now. The review committee doesn't appreciate being told the numbers themselves are the problem, and the Provost's office quietly marks all three of you as 'coordinating against the process.'" }
   ]
 },
 {
@@ -301,17 +316,20 @@ const SCENARIOS = [
       result:"The story dies down within a week. The instructor never quite trusts your judgment again." },
     { label:"Refer all inquiries to the university's general counsel and legal/media office.", tag:"C",
       effects:{pc:3, dean:3, mor:1},
-      result:"It's the boring answer, but it keeps you out of the crossfire almost entirely." }
+      result:"It's the boring answer, but it keeps you out of the crossfire almost entirely." },
+    { label:"Treat it as free publicity and post enthusiastically about the course on LinkedIn.", tag:"D",
+      effects:{pc:4, mor:6, dean:-12},
+      result:"Your post — 'Proud of our faculty for teaching without fear!' — collects thousands of likes within a day, half from supportive alumni and half from constituents tagging the legislator's office directly in the comments. The story is now trending statewide, and the Dean's office is fielding calls from people who'd never heard of your department yesterday." }
   ]
 },
 {
   title: "One Retirement, One Fight",
-  text: (S) => `Professor Kowalski's retirement opens a rare tenure-line hire. Your senior medievalist wants a replacement in her subfield to keep the concentration alive; two junior faculty argue the department desperately needs someone in digital humanities to stay "relevant" to enrollment. The Dean will only approve one line.`,
+  text: (S) => `Professor Kowalski's retirement opens a rare tenure-line hire. Your senior faculty member wants a replacement in her subfield to keep the concentration alive; two junior faculty argue the department desperately needs someone with strong digital skills to stay "relevant" to enrollment. The Dean will only approve one line.`,
   choices: [
     { label:"Back the traditional subfield hire — protect what's historically strong.", tag:"A",
       effects:{mor:5, dean:-4, bud:0},
       result:"Senior faculty are relieved their field survives. The junior faculty feel the department is choosing the past over the future." },
-    { label:"Back the digital humanities hire, citing enrollment and grant potential.", tag:"B",
+    { label:"Back the hire with strong digital skills, citing enrollment and grant potential.", tag:"B",
       effects:{dean:8, mor:-6, pc:1},
       result:"The Dean's office loves the pitch. It will take years to know if the bet pays off — and someone's field just quietly ended." },
     { label:"Ask the Dean for a compromise: a joint appointment split across two departments.", tag:"C",
@@ -331,7 +349,10 @@ const SCENARIOS = [
       result:"It's done on time, and nobody but you knows what it cost you personally." },
     { label:"Ignore the deadline; let the mandate default to a generic boilerplate response.", tag:"C",
       effects:{dean:-6, pc:-2, mor:1},
-      result:"It's the path of least effort — and the Dean's office notices departments that treat mandates as optional." }
+      result:"It's the path of least effort — and the Dean's office notices departments that treat mandates as optional." },
+    { label:"Hand the whole response off to your deputy chair to draft.", tag:"D",
+      effects:{mor:-7, pc:-2, dean:-3},
+      result:"Your deputy spends two solid weekends building a meticulous response — then the university revises the mandate's requirements with four days' notice, rendering most of it moot. They are not shy about letting you know exactly how they feel about redoing it from scratch." }
   ]
 },
 {
@@ -346,7 +367,10 @@ const SCENARIOS = [
       result:"The Dean's office likes it. A colleague who lived through this year privately calls it 'creative writing.'" },
     { label:"Ask three faculty to co-sign the report with you, sharing both credit and blame.", tag:"C",
       effects:{mor:7, pc:3, dean:1},
-      result:"It's an unusual move, and it lands as a sign that you see this as a shared project, not just your résumé." }
+      result:"It's an unusual move, and it lands as a sign that you see this as a shared project, not just your résumé." },
+    { label:"Use the report to catalogue, in detail, everywhere the administration failed the department this year.", tag:"D",
+      effects:{mor:8, pc:5, dean:-9},
+      result:"The report is thorough, sharply argued, and reads less like a self-assessment than an indictment. The Dean doesn't push back on the substance — instead, he quietly starts treating you like someone angling for a seat in the administration rather than someone content running a department, and stops sharing things off the record." }
   ]
 },
 {
@@ -360,8 +384,8 @@ const SCENARIOS = [
       effects:{mor:6, dean:-5, pc:-2},
       result:"Your faculty feel protected. You've made an enemy in Sociology who now sits on your college's budget subcommittee." },
     { label:"Propose splitting the enrollment credit fifty-fifty going forward.", tag:"C",
-      effects:{pc:4, dean:2, mor:-1},
-      result:"It's an unsatisfying compromise that mostly just delays the same argument to next year." }
+      effects:{pc:-3, dean:-4, mor:-6, bud:-3},
+      result:"The split looks fine on paper until the registrar's cancellation sweep: Sociology's half of the cross-listing comes in under the minimum, and the whole course gets automatically pulled from the schedule — even though your section alone had more than enough students to run it." }
   ]
 },
 {
@@ -402,8 +426,8 @@ const SCENARIOS = [
       effects:{dean:7, mor:-5, bud:-2},
       result:"The binder is genuinely strong. The two faculty you conscripted are quietly resentful for the rest of the semester." },
     { label:"Hire a part-time consultant who specializes in accreditation reports.", tag:"B",
-      effects:{bud:-6, dean:5, mor:2},
-      result:"It costs more than you'd like, but it's the smoothest visit prep you've ever seen." },
+      effects:{dean:5, mor:2, pc:-5},
+      result:"There's no line item anywhere for this. Rather than let the visit go sideways, you quietly cover the consultant's fee yourself out of a sense of duty nobody asked you to have. The binder is the smoothest you've ever seen — and you're fairly certain a reimbursement request would go nowhere, so you never file one." },
     { label:"Assemble it yourself over several very long nights.", tag:"C",
       effects:{pc:-2, dean:3, mor:3},
       result:"Faculty appreciate that you didn't dump it on them. You are exhausted for a month afterward." }
@@ -451,7 +475,10 @@ const SCENARIOS = [
       result:"You get partial funding after some negotiation, and a reputation for asking for money at inconvenient times." },
     { label:"Cut one of the three sections and let students take it as an overload next year.", tag:"C",
       effects:{mor:-6, dean:4, bud:2},
-      result:"It solves your staffing problem and creates a bottleneck problem for a hundred students instead." }
+      result:"It solves your staffing problem and creates a bottleneck problem for a hundred students instead." },
+    { label:"Fill all three vacancies fast with newly available adjuncts, even though a couple of the CVs don't quite add up.", tag:"D",
+      effects:{bud:3, dean:2, mor:-3, pc:-2},
+      result:"The courses are covered by the first day of add/drop. By week three, one of the new hires can't answer basic questions in their own field, and a colleague quietly discovers their listed 'PhD candidate, ABD' status might be more aspirational than actual. It solves your problem today; you suspect it's going to have a much longer half-life than that." }
   ]
 },
 {
@@ -466,7 +493,10 @@ const SCENARIOS = [
       result:"Faculty feel defended. The Dean's office quietly redirects the online-development funds to a more cooperative department." },
     { label:"Agree to pilot one large online section taught by you personally, to see how it goes.", tag:"C",
       effects:{dean:4, mor:1, pc:-2},
-      result:"You've bought goodwill with the administration at the cost of your own already-thin bandwidth." }
+      result:"You've bought goodwill with the administration at the cost of your own already-thin bandwidth." },
+    { label:"Before committing anyone, ask the Provost's office about revenue sharing or IP ownership for the faculty building these sections.", tag:"D",
+      effects:{pc:2, dean:-3, mor:-9},
+      result:"The answer comes back plainly: course development counts as normal duties, no extra pay, no revenue share — and per policy, the university retains the resulting curriculum outright, free to repackage it into as many continuing-education sections as it likes, taught by whoever it chooses, no original faculty required. The junior faculty who'd been excited about the extra pay stop being excited." }
   ]
 },
 {
@@ -481,7 +511,10 @@ const SCENARIOS = [
       result:"It feels fairer to most people, though the two who lost the lottery aren't fully convinced of that." },
     { label:"Fight the facilities office for one additional office allocation.", tag:"C",
       effects:{dean:-4, pc:4, mor:4},
-      result:"You win an unglamorous but real victory that nobody outside the department will ever know to thank you for." }
+      result:"You win an unglamorous but real victory that nobody outside the department will ever know to thank you for." },
+    { label:"Give up your own faculty office, since you're working out of the chair's office anyway.", tag:"D",
+      effects:{mor:8, pc:5, dean:1},
+      result:"The new hire gets a real office, the seniority squabbling evaporates overnight, and you quietly move your books into the chair's office shelves. It costs you the one workspace that was ever really yours — some evenings you miss having a door to close that isn't also where people come to complain." }
   ]
 },
 {
@@ -494,9 +527,9 @@ const SCENARIOS = [
     { label:"Decline for now, citing the governance complexity and thin faculty bandwidth.", tag:"B",
       effects:{dean:-5, mor:4},
       result:"Faculty are relieved not to take on more. The Dean's office notes you passed on a visibility opportunity." },
-    { label:"Counter-propose a smaller joint certificate instead of a full degree program.", tag:"C",
-      effects:{pc:3, dean:2, mor:1},
-      result:"It's a modest version of the idea, which is exactly why both sides can actually agree to it." }
+    { label:"Push through every tedious cross-institution detail yourself — financial-aid articulation, accreditation paperwork, the revenue-sharing formula — to lock in a real cut of the joint tuition.", tag:"D",
+      effects:{bud:9, mor:-6, pc:-4},
+      result:"Six months of committee calls and paperwork later, the revenue-sharing formula is signed and starts padding your budget for real. You're running on fumes by the end of it, and two other things that needed your attention this whole time — a grievance, a curriculum review — piled up untouched while you weren't looking." }
   ]
 },
 {
@@ -511,7 +544,10 @@ const SCENARIOS = [
       result:"The series survives on faculty goodwill that is not, in fact, an infinite resource." },
     { label:"Redirect funds from another line item — travel support — to cover the gap.", tag:"C",
       effects:{bud:-3, mor:-5, dean:1},
-      result:"The series continues. Faculty who lost travel funding are not thrilled about the trade you made on their behalf." }
+      result:"The series continues. Faculty who lost travel funding are not thrilled about the trade you made on their behalf." },
+    { label:"Move the remaining talks to Zoom and lean on speakers willing to volunteer their time.", tag:"D",
+      effects:{bud:5, mor:-3, pc:3, dean:1},
+      result:"It costs almost nothing and technically keeps the series alive, but attendance drops off a cliff — a few sessions are just you, the speaker, and three students watching from their dorm rooms. The petition organizers declare victory anyway, since technically the series didn't end." }
   ]
 },
 {
@@ -526,7 +562,10 @@ const SCENARIOS = [
       result:"The professor is grateful. Word spreads among students that complaints go nowhere in your department." },
     { label:"Quietly suggest the professor consider adjusting the grading rubric going forward.", tag:"C",
       effects:{mor:4, dean:-2, pc:-1},
-      result:"Students feel heard. The professor feels like their judgment was overruled without a real conversation." }
+      result:"Students feel heard. The professor feels like their judgment was overruled without a real conversation." },
+    { label:"Fall down a rabbit hole reading pedagogy research on grading practices before deciding anything.", tag:"D",
+      effects:{dean:-4, pc:-3, mor:-2},
+      result:"Three days and eleven open browser tabs later, you've developed a full-blown existential crisis about whether grades mean anything at all, several strongly-held opinions about 'ungrading,' and no actual answer for the eighty students still waiting to hear back. The petition organizers escalate to the Dean's office out of sheer impatience." }
   ]
 },
 {
@@ -556,7 +595,10 @@ const SCENARIOS = [
       result:"Reports come in on time again. The underlying exhaustion driving the slowdown goes completely unaddressed." },
     { label:"Quietly redistribute the heaviest service burdens away from the most depleted faculty.", tag:"C",
       effects:{mor:5, pc:-2, bud:0},
-      result:"It helps the people who needed it most, and it means a smaller group is now doing more of the department's actual work." }
+      result:"It helps the people who needed it most, and it means a smaller group is now doing more of the department's actual work." },
+    { label:"Sternly clamp down on the slowdown with the Dean's explicit backing — formal expectations, documented consequences.", tag:"D",
+      effects:{dean:9, mor:-11, pc:-4},
+      result:"The Dean's office is thrilled to see a chair finally 'address the culture problem' head-on. Compliance snaps back within a week. So does the goodwill you'd built up over the rest of the year — and two faculty quietly start updating their CVs." }
   ]
 },
 {
@@ -586,7 +628,10 @@ const SCENARIOS = [
       result:"Faculty appreciate that you didn't dump it on someone else. Your own week gets noticeably fuller." },
     { label:"Offer a small course-release incentive to whoever volunteers first.", tag:"C",
       effects:{bud:-3, mor:3, pc:2},
-      result:"Someone volunteers almost immediately. You've just set a precedent people will expect again next year." }
+      result:"Someone volunteers almost immediately. You've just set a precedent people will expect again next year." },
+    { label:"Finally assign it to the one faculty member who's dodged committee service for years on a reputation for being terrible at it.", tag:"D",
+      effects:{mor:6, dean:-6, pc:-1},
+      result:"The rest of the department is quietly delighted somebody finally called the bluff. The committee's actual output, months later, justifies exactly why this person was allowed to dodge service for so long — the assessment report comes back from the Dean's office needing to be substantially rewritten." }
   ]
 },
 {
@@ -599,7 +644,10 @@ const SCENARIOS = [
     { label:"Thank her for her service and treat the departure as a normal career move.", tag:"B",
       effects:{dean:2, mor:-4},
       result:"It's the easier conversation to have. The colleagues who share her frustrations notice nothing changes." },
-    { label:"Counter-offer aggressively to try to keep her, using discretionary funds you don't really have.", tag:"C",
+    { label:"Accept the resignation, and apologize again for how long her office and lab space took to get set up when she first arrived.", tag:"C",
+      effects:{mor:-5, pc:-2, dean:1},
+      result:"She pauses, visibly recalibrating what she thought this conversation was going to be about. The space issue was resolved two years ago and wasn't remotely what she just told you was driving her out. She leaves having learned, one more time, exactly what you were and weren't listening to." },
+    { label:"Counter-offer aggressively to try to keep her, using discretionary funds you don't really have.", tag:"D",
       effects:{bud:-6, dean:-2, mor:2},
       result:"She stays, for now. You've spent money you'll be explaining to the Dean's office for the rest of the year." }
   ]
@@ -616,7 +664,10 @@ const SCENARIOS = [
       result:"The Dean's office appreciates the discretion. Faculty feel the story was left unanswered." },
     { label:"Use the story internally as a case for a resource request to actually improve the metrics.", tag:"C",
       effects:{dean:3, bud:2, pc:2},
-      result:"It's a pragmatic move — turning a bad headline into leverage for something the department actually needed." }
+      result:"It's a pragmatic move — turning a bad headline into leverage for something the department actually needed." },
+    { label:"Hire a federal work-study student to run a social media push about the program.", tag:"D",
+      effects:{bud:-1, pc:2, mor:1, dean:1},
+      result:"The posts are earnest, occasionally off-brand, and pull in a modest bump in followers among prospective students. It does approximately nothing to answer the actual methodology complaint, but it's nearly free, and nobody at the Dean's office seems to notice the difference between 'we addressed this' and 'we posted about it.'" }
   ]
 },
 {
@@ -646,7 +697,10 @@ const SCENARIOS = [
       result:"Faculty respect the principle. The Dean's office quietly wonders if you understand how development offices work." },
     { label:"Refer the negotiation entirely to the development office and stay out of the specifics.", tag:"C",
       effects:{dean:3, pc:-2, mor:-1},
-      result:"It's the safest option for you personally, and it means the terms get set largely without faculty input." }
+      result:"It's the safest option for you personally, and it means the terms get set largely without faculty input." },
+    { label:"Spend weeks personally cultivating the donor, hoping to grow the gift into something transformative.", tag:"D",
+      effects:{pc:-4, mor:-2, dean:-3},
+      result:"You build real rapport over several dinners and campus tours, and the number under discussion climbs well past the original offer — right up until the donor's primary contact in the development office resigns without notice, the paperwork stalls in the reshuffle, and the whole gift quietly evaporates before anyone signs anything." }
   ]
 }
 ];
