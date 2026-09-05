@@ -172,7 +172,10 @@ const STATE = {
   totalWeeks: 10,
   stats: { pc: 50, bud: 50, mor: 50, dean: 50 },
   log: [],
-  scenarios: []
+  scenarios: [],
+  forcedEnding: null,
+  pendingBonus: null,
+  bonusFired: { pc:false, bud:false, mor:false, dean:false }
 };
 
 function clamp(n){ return Math.max(0, Math.min(100, n)); }
@@ -705,7 +708,238 @@ const SCENARIOS = [
 }
 ];
 
+// ---------------- BONUS SCENARIOS ----------------
+// Triggered mid-week when a stat crosses 75. Each fires at most once per playthrough
+// per stat. Resolving one does not consume a week.
+const BONUS_SCENARIOS = {
+  pc: [
+    {
+      title: "Called In to Collect",
+      text: (S) => `Word has clearly gotten around that you're someone worth staying on good terms with. Three other chairs corner you this week, one after another, each looking for a favor — a cross-listing, a letter of support, a quiet word to the Dean on their behalf.`,
+      choices: [
+        { label:"Cash in the goodwill: call in a favor of your own from someone equally indebted.", tag:"A",
+          effects:{pc:-15, dean:6, bud:4},
+          result:"You get exactly what you asked for. Political capital, it turns out, was always meant to be spent, not admired." },
+        { label:"Do the favors freely, banking the goodwill for later.", tag:"B",
+          effects:{pc:5, mor:3},
+          result:"You're now owed by three different departments simultaneously. None of them will remember this quite as clearly as you will." },
+        { label:"Decline everyone, calmly, and go back to running your own department.", tag:"C",
+          effects:{pc:-4, mor:2},
+          result:"A little bit of your standing evaporates from sheer disuse, but your afternoon is, for once, entirely your own." }
+      ]
+    },
+    {
+      title: "The Backchannel",
+      text: (S) => `You start getting looped into hallway conversations before they become official ones — a Provost staffer mentions a policy change is "still soft," a rival chair asks what you'd do in their position. Somewhere along the way, you became someone people check with first.`,
+      choices: [
+        { label:"Use the early information to get ahead of a coming policy change before anyone else does.", tag:"A",
+          effects:{pc:-6, dean:6, bud:2},
+          result:"You draft your department's response two weeks before anyone else even knows there's something to respond to. The Dean's office is impressed. You've also just told a few people you can be counted on to move fast with information you technically weren't supposed to have." },
+        { label:"Keep the confidences and offer nothing back — just listen.", tag:"B",
+          effects:{pc:3, mor:1},
+          result:"People keep talking to you precisely because you don't do anything with it. It's a strange kind of currency, saying nothing." },
+        { label:"Pass a useful piece of the information along to a struggling colleague's department.", tag:"C",
+          effects:{pc:-5, mor:6},
+          result:"It's not really your information to share, but it clearly helps someone who needed the head start more than you did." }
+      ]
+    },
+    {
+      title: "A Seat at the Table",
+      text: (S) => `The Provost's office asks you to sit on a university-wide task force on something only tangentially related to your department — mostly, everyone suspects, because you're currently easy to work with.`,
+      choices: [
+        { label:"Accept enthusiastically and dive into the extra committee work.", tag:"A",
+          effects:{pc:4, dean:5, mor:-5},
+          result:"It's genuinely good visibility. It also means one more standing meeting eating into a week that didn't have room for it." },
+        { label:"Accept, but quietly send your associate chair in your place most weeks.", tag:"B",
+          effects:{pc:2, dean:2, mor:2},
+          result:"Nobody at the task force seems to mind, and your associate chair gets university-level face time they wouldn't have had otherwise." },
+        { label:"Decline, citing departmental workload, and suggest another chair instead.", tag:"C",
+          effects:{pc:-3, mor:3},
+          result:"The department appreciates that you didn't take on more without asking them first. The Provost's office quietly notes the pass." }
+      ]
+    }
+  ],
+  bud: [
+    {
+      title: "A Surplus, Noticed",
+      text: (S) => `The Dean's budget office flags your department's unusually healthy year-end position and asks, with mild suspicion, what you intend to do with it before the fiscal year closes — because whatever it is, someone above you would like to know first.`,
+      choices: [
+        { label:"Spend it fast on overdue equipment and lab upgrades before it's clawed back.", tag:"A",
+          effects:{bud:-15, mor:8},
+          result:"The gear arrives just under the wire. Faculty are thrilled. The Dean's office notes, approvingly, that you know how a fiscal year actually works." },
+        { label:"Ask to roll it forward into next year's contingency fund.", tag:"B",
+          effects:{bud:5, dean:-4},
+          result:"Central finance grudgingly allows it, on the record, as an exception they'd rather you not mention to other chairs." },
+        { label:"Let it quietly revert to the central budget, no questions asked.", tag:"C",
+          effects:{bud:-10, dean:6},
+          result:"It's the safe, uncomplicated answer, and it buys you real credibility the next time you actually need money." }
+      ]
+    },
+    {
+      title: "An Unsolicited Pitch",
+      text: (S) => `A consulting firm's sales rep has heard, somehow, that your department has money to spend, and wants forty-five minutes of your time to pitch a "curriculum optimization platform" that costs almost exactly what you have left to spend.`,
+      choices: [
+        { label:"Take the meeting and actually buy the platform.", tag:"A",
+          effects:{bud:-14, dean:3, mor:-4},
+          result:"It's shinier than what you had. Whether it does anything the spreadsheet wasn't already doing is a question you'll be asking again next year." },
+        { label:"Take the meeting, say no, and redirect the budget to adjunct pay instead.", tag:"B",
+          effects:{bud:-10, mor:9},
+          result:"The sales rep does not take it well. Your adjuncts, who did, take it considerably better." },
+        { label:"Skip the meeting entirely and let the money sit as a cushion.", tag:"C",
+          effects:{bud:3, dean:-2},
+          result:"It's a mildly unsatisfying anticlimax, and also exactly the kind of caution that keeps a department solvent." }
+      ]
+    },
+    {
+      title: "The Neighboring Department Asks",
+      text: (S) => `The chair next door, whose budget is a genuine mess, asks quietly whether you'd consider "lending" some of your unspent funds toward a shared initiative — nothing formal, nothing that has to go through the Dean's office.`,
+      choices: [
+        { label:"Help them out informally, no paperwork, on good faith.", tag:"A",
+          effects:{bud:-9, pc:5, mor:2},
+          result:"It's against every rule of fiscal hygiene you were ever taught, and it also happens to be exactly the kind of favor that gets remembered for years." },
+        { label:"Offer to co-sponsor something formal and visible instead of an informal transfer.", tag:"B",
+          effects:{bud:-5, dean:4, pc:3},
+          result:"It takes longer to set up and looks a lot better on paper when someone eventually asks how the money moved." },
+        { label:"Decline — it's not your department's job to subsidize another one's mismanagement.", tag:"C",
+          effects:{pc:-4, dean:2},
+          result:"You're not wrong, exactly. You also just watched a relationship you might have needed later quietly sour." }
+      ]
+    }
+  ],
+  mor: [
+    {
+      title: "A Department in Good Spirits",
+      text: (S) => `Morale is, unusually, high enough that faculty start proposing things on their own initiative — a retreat, a co-authored grant, a department happy hour that isn't secretly a complaint session. Someone asks if you'll actually greenlight one of these instead of just nodding along.`,
+      choices: [
+        { label:"Fund a real department retreat off-site, budget be damned.", tag:"A",
+          effects:{bud:-10, mor:8, pc:3},
+          result:"It's the best two days the department has had in years, and for once nobody spends the whole time arguing about the curriculum." },
+        { label:"Encourage the collaborative grant proposal and get out of the way.", tag:"B",
+          effects:{pc:4, dean:5},
+          result:"Nothing about it required your money or your time, which is exactly why it works this well." },
+        { label:"Match the good mood with warm words but no actual budget commitment.", tag:"C",
+          effects:{mor:-5, pc:2},
+          result:"The enthusiasm cools noticeably once people realize 'we should do this' was never going to become 'we are doing this.'" }
+      ]
+    },
+    {
+      title: "The Department Photo",
+      text: (S) => `The communications office wants to feature your department in a glossy piece on "faculty who love coming to work" — professional photographer, quotes, the whole thing — because, apparently, word of your unusually good morale reached them somehow.`,
+      choices: [
+        { label:"Say yes and let the whole department take part.", tag:"A",
+          effects:{mor:6, pc:3, dean:2},
+          result:"The piece runs, faculty feel genuinely seen for once, and the department's applications tick up slightly for reasons nobody can fully explain." },
+        { label:"Say yes, but limit it to two or three people to avoid disrupting classes.", tag:"B",
+          effects:{mor:2, dean:1},
+          result:"It goes fine. A few people who weren't picked notice, and wonder, quietly, why not them." },
+        { label:"Decline — good morale shouldn't have to prove itself to central marketing.", tag:"C",
+          effects:{mor:4, pc:-2},
+          result:"Faculty respect the instinct. Central communications moves on to a more camera-ready department instead." }
+      ]
+    },
+    {
+      title: "A Wave of Volunteers",
+      text: (S) => `For the first time in memory, you have more faculty volunteering for committee seats than there are committee seats to fill. Someone has to be turned down, and everyone assumed that someone would never be them.`,
+      choices: [
+        { label:"Assign seats by lottery to keep it visibly fair.", tag:"A",
+          effects:{mor:3, pc:2},
+          result:"It's not a perfect system, but it's one nobody can accuse you of rigging in anyone's favor." },
+        { label:"Hand-pick the strongest committee possible and thank the rest personally.", tag:"B",
+          effects:{mor:-3, dean:4},
+          result:"The resulting committees are excellent. A few of the faculty you passed over quietly note that enthusiasm apparently wasn't enough." },
+        { label:"Create an extra, informal advisory seat so nobody is technically turned away.", tag:"C",
+          effects:{bud:-2, mor:5},
+          result:"It's an improvised fix that costs you almost nothing and makes the rare problem of too much goodwill disappear neatly." }
+      ]
+    }
+  ],
+  dean: [
+    {
+      title: "A Rare Vote of Trust",
+      text: (S) => `The Dean's office is sufficiently pleased with you that they offer something unusual: discretion. A pool of small decisions — course caps, minor budget shuffles, a hire timeline — that normally require sign-off is quietly handed to you to manage on your own judgment, "given your track record."`,
+      choices: [
+        { label:"Use the new discretion generously to fix small, long-standing faculty annoyances.", tag:"A",
+          effects:{mor:9, dean:-3},
+          result:"Faculty notice things suddenly moving faster. The Dean's office notices you using the leash they gave you to its full length." },
+        { label:"Use it sparingly and only for the most defensible calls.", tag:"B",
+          effects:{dean:5, pc:2},
+          result:"Nothing goes wrong, which is precisely the point of having been trusted with it in the first place." },
+        { label:"Quietly delegate the new authority to your associate chair, to build their standing too.", tag:"C",
+          effects:{mor:5, pc:3, dean:-2},
+          result:"It's a generous move that costs you some direct credit — and earns you a genuinely loyal deputy." }
+      ]
+    },
+    {
+      title: "An Off-Book Ask",
+      text: (S) => `The Dean pulls you aside after a meeting, not for anything on the agenda, but to quietly ask if you'd be willing to smooth over a sensitive personnel situation in another department — informally, off the record, because "you're good at this."`,
+      choices: [
+        { label:"Agree to help quietly, as asked.", tag:"A",
+          effects:{dean:6, pc:3, mor:-3},
+          result:"You handle it well, and it costs you time and goodwill nobody in your own department will ever know you spent." },
+        { label:"Agree, but only if it's documented properly through normal channels.", tag:"B",
+          effects:{dean:-2, pc:4},
+          result:"The Dean is faintly annoyed at the insistence on paperwork. You sleep better at night regardless." },
+        { label:"Decline — your own department has enough that actually needs you.", tag:"C",
+          effects:{dean:-5, mor:3},
+          result:"It's the boundary you probably should have set months ago. The Dean's office notes it, and not entirely approvingly." }
+      ]
+    },
+    {
+      title: "The Speaking Slot",
+      text: (S) => `The Dean asks you to represent the college at an external event — a legislative breakfast, alumni gala, or peer-institution panel — the kind of visibility that's usually reserved for deans and vice provosts, not department chairs.`,
+      choices: [
+        { label:"Accept, and use the platform to advocate directly for your department's needs.", tag:"A",
+          effects:{dean:-3, pc:6, bud:2},
+          result:"It's a little bold for the room, and it's also the first time in years anyone outside the building has heard your department's actual case made out loud." },
+        { label:"Accept, and stick closely to the safe, generic talking points you're given.", tag:"B",
+          effects:{dean:5, pc:1},
+          result:"It goes smoothly and forgettably, which is exactly what the Dean's office was hoping for." },
+        { label:"Suggest a faculty member who'd benefit more from the visibility, and send them instead.", tag:"C",
+          effects:{mor:6, dean:1},
+          result:"It's a generous move, and the faculty member you sent won't forget who gave them the opportunity." }
+      ]
+    }
+  ]
+};
+
+function checkBonusTrigger(){
+  for(const k of ["pc","bud","mor","dean"]){
+    if(STATE.stats[k] > 75 && !STATE.bonusFired[k]){
+      STATE.bonusFired[k] = true;
+      const pool = BONUS_SCENARIOS[k];
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+  }
+  return null;
+}
+
 // ---------------- ENDINGS ----------------
+const ZERO_ENDINGS = {
+  dean: {
+    title: "Terminated With Cause",
+    text: `The Provost's office moves faster than anyone expected. By Friday afternoon, campus security has already re-keyed your office door — the one that still doesn't fit the old filing cabinet. There is no exit interview, barely an email. Someone else will be Chair by Monday, and the memos will simply resume as if you were never the one writing them.`
+  },
+  bud: {
+    title: "The Books Don't Close",
+    text: `The department's accounts run so far into the red that the Provost's office stops asking about spending priorities and starts asking about receivership. An external financial monitor is assigned to co-sign every purchase order from here on. You are still, technically, the Chair. You are also, as of this week, no longer the one actually running the department.`
+  },
+  mor: {
+    title: "The Department Revolts",
+    text: `It doesn't happen all at once, and then it does: three faculty file formal no-confidence complaints in the same week, two more stop attending meetings altogether, and a fourth is quietly interviewing elsewhere. The Dean's office intervenes directly — not to save your chairship, but to keep the department from coming apart around it.`
+  },
+  pc: {
+    title: "Persona Non Grata",
+    text: `It's a strange kind of ending — nothing dramatic happens, exactly. Meetings you used to be invited to happen without you. Emails you used to be copied on go out without your name in the header. You are still Chair on paper. In every room that actually matters, you've already been quietly replaced by the org chart itself.`
+  }
+};
+
+function checkZeroEnding(){
+  for(const k of ["dean","bud","mor","pc"]){
+    if(STATE.stats[k] <= 0) return ZERO_ENDINGS[k];
+  }
+  return null;
+}
+
 function computeEnding(){
   const s = STATE.stats;
   const avg = (s.pc + s.bud + s.mor + s.dean) / 4;
@@ -833,29 +1067,84 @@ function renderScenario(){
   });
 }
 
+function evaluateAfterChoice(){
+  STATE.forcedEnding = checkZeroEnding();
+  STATE.pendingBonus = STATE.forcedEnding ? null : checkBonusTrigger();
+}
+
+function nextButtonLabel(){
+  if(STATE.forcedEnding) return "SEE WHAT HAPPENS";
+  if(STATE.pendingBonus) return "ONE MORE THING";
+  return "NEXT WEEK";
+}
+
+function advanceAfterChoice(){
+  if(STATE.forcedEnding){
+    renderEnding();
+  } else if(STATE.pendingBonus){
+    renderBonusScenario();
+  } else {
+    STATE.week += 1;
+    renderScenario();
+  }
+}
+
 function chooseOption(sc, choice){
   applyEffects(choice.effects);
   STATE.log.push({week: STATE.week+1, title: sc.title, choice: choice.label});
+  evaluateAfterChoice();
 
-  const memo = document.getElementById("memo");
   document.getElementById("choiceList").innerHTML = "";
   document.getElementById("consequenceBox").innerHTML = `
     ${renderGauges()}
     <div class="consequence">${choice.result}</div>
-    <button class="continue-btn" id="nextBtn">NEXT WEEK &rarr;</button>
+    <button class="continue-btn" id="nextBtn">${nextButtonLabel()} &rarr;</button>
   `;
-  document.getElementById("nextBtn").onclick = () => {
-    STATE.week += 1;
-    renderScenario();
-  };
+  document.getElementById("nextBtn").onclick = advanceAfterChoice;
+}
+
+function renderBonusScenario(){
+  const sc = STATE.pendingBonus;
+  const memo = document.getElementById("memo");
+  memo.innerHTML = `
+    ${renderLetterhead("A MATTER OUTSIDE THE AGENDA")}
+    ${renderGauges()}
+    <div class="scene-title">${sc.title}</div>
+    <div class="scene-text">${sc.text(STATE)}</div>
+    <div class="choices" id="choiceList"></div>
+    <div id="consequenceBox"></div>
+  `;
+  const list = document.getElementById("choiceList");
+  sc.choices.forEach((c) => {
+    const btn = document.createElement("button");
+    btn.className = "choice-btn";
+    btn.innerHTML = `<span class="tag">[${c.tag}]</span>${c.label}`;
+    btn.onclick = () => chooseBonusOption(sc, c);
+    list.appendChild(btn);
+  });
+}
+
+function chooseBonusOption(sc, choice){
+  applyEffects(choice.effects);
+  STATE.log.push({week: STATE.week+1, title: "[Bonus] " + sc.title, choice: choice.label});
+  STATE.pendingBonus = null;
+  evaluateAfterChoice();
+
+  document.getElementById("choiceList").innerHTML = "";
+  document.getElementById("consequenceBox").innerHTML = `
+    ${renderGauges()}
+    <div class="consequence">${choice.result}</div>
+    <button class="continue-btn" id="nextBtn">${nextButtonLabel()} &rarr;</button>
+  `;
+  document.getElementById("nextBtn").onclick = advanceAfterChoice;
 }
 
 function renderEnding(){
-  const ending = computeEnding();
+  const ending = STATE.forcedEnding || computeEnding();
   const s = STATE.stats;
   const memo = document.getElementById("memo");
   memo.innerHTML = `
-    ${renderLetterhead("END OF TERM")}
+    ${renderLetterhead(STATE.forcedEnding ? `TERM ENDED &mdash; WEEK ${STATE.week + 1}` : "END OF TERM")}
     <div class="end-title">${ending.title}</div>
     <div class="scene-text">${ending.text}</div>
     <div class="end-stats">
@@ -867,6 +1156,9 @@ function renderEnding(){
     STATE.stats = { pc:50, bud:50, mor:50, dean:50 };
     STATE.log = [];
     STATE.scenarios = [];
+    STATE.forcedEnding = null;
+    STATE.pendingBonus = null;
+    STATE.bonusFired = { pc:false, bud:false, mor:false, dean:false };
     renderStart();
   };
 }
