@@ -107,9 +107,6 @@
   .choice-btn .tag{
     font-family:'Courier New',monospace; font-size:11px; color: var(--oxblood); margin-right:8px;
   }
-  .choice-btn:hover{
-    background: var(--manila);
-  }
   .choice-btn:active{ transform: translateY(1px); }
   .consequence{
     font-family: Georgia, serif;
@@ -133,7 +130,6 @@
     letter-spacing:0.5px;
     cursor:pointer;
   }
-  .continue-btn:hover{ background:#2c4060; }
   .lowfreq-btn{
     margin-top:14px;
     display:block;
@@ -147,7 +143,6 @@
     letter-spacing:0.3px;
     cursor:pointer;
   }
-  .lowfreq-btn:hover{ background: rgba(122,46,46,0.08); }
   .start-screen h1{
     font-size: 24px; color: var(--navy); margin-bottom:4px;
   }
@@ -191,7 +186,6 @@
     text-decoration:underline;
     cursor:pointer;
   }
-  .disclaimer-link:hover{ color: var(--oxblood); }
   .disclaimer-box{
     margin-top:10px;
     padding:10px 12px;
@@ -236,6 +230,17 @@
       text-align: center;
     }
     .end-title{ font-size: 19px; }
+  }
+
+  /* Hover effects only for real pointer devices — on touchscreens, :hover
+     applies on tap and then gets stuck until something else is tapped,
+     which made whichever choice was last tapped look permanently
+     highlighted a different color than the rest. */
+  @media (hover: hover) and (pointer: fine){
+    .choice-btn:hover{ background: var(--manila); }
+    .continue-btn:hover{ background:#2c4060; }
+    .lowfreq-btn:hover{ background: rgba(122,46,46,0.08); }
+    .disclaimer-link:hover{ color: var(--oxblood); }
   }
 </style>
 </head>
