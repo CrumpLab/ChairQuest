@@ -264,7 +264,8 @@ const STATE = {
   bonusFired: { pc:false, bud:false, mor:false, dean:false },
   continuation: "advanceWeek",
   usedLowFreq: [],
-  pendingLowFreq: null
+  pendingLowFreq: null,
+  usedExternal: []
 };
 
 function clamp(n){ return Math.max(0, Math.min(100, n)); }
@@ -1326,6 +1327,89 @@ const LOW_FREQUENCY_EVENTS = [
 }
 ];
 
+// ---------------- EXTERNAL EVENTS ----------------
+// Things that happen to the department from outside — state politics, the
+// broader economy, university-wide news. No choice is offered; the effects
+// just land. Fires with a 25% chance at the start of any week, before that
+// week's scenario.
+const EXTERNAL_EVENTS = [
+{
+  title: "State Budget Cuts Announced",
+  text: (S) => `The state legislature passes an across-the-board rescission on higher-education appropriations, effective immediately. Every department absorbs a cut, no exceptions and no negotiation — the letter from the Provost's office is a form letter, not a conversation.`,
+  effects:{bud:-10, dean:-5}
+},
+{
+  title: "A Surprise Bequest",
+  text: (S) => `A deceased alumnus nobody in the department remembers teaching leaves an unrestricted gift in his will, 'to the department that gave him his start.' Nobody asked for it. The check clears anyway.`,
+  effects:{bud:15}
+},
+{
+  title: "The Provost Resigns Abruptly",
+  text: (S) => `The Provost resigns with two weeks' notice, following a controversy that has nothing to do with your department. Every routine request that used to move through that office now sits in a queue behind an interim appointment nobody trusts yet.`,
+  effects:{pc:-5, dean:-10}
+},
+{
+  title: "A National Ranking Snapshot",
+  text: (S) => `An unrelated methodology change at a national ranking outlet bumps the university's overall reputation score up a few spots this year. Some of that shine lands on every department's door, including yours, whether it earned it or not.`,
+  effects:{dean:5, pc:5}
+},
+{
+  title: "A Severe Winter Storm",
+  text: (S) => `A multi-day ice storm shuts the campus down mid-semester, canceling a week of classes and leaving facilities with storm damage nobody budgeted for. The calendar gets compressed; the invoices do not get smaller.`,
+  effects:{bud:-5, mor:-5}
+},
+{
+  title: "A Viral Campus Story",
+  text: (S) => `An unrelated, feel-good story about the university goes viral overnight — a student's kindness, a professor's retirement send-off, nobody quite agrees which. Applications and general goodwill spike university-wide, and your department catches some of the glow.`,
+  effects:{pc:5, dean:5}
+},
+{
+  title: "A New State Reporting Mandate",
+  text: (S) => `The state legislature passes a new compliance reporting requirement for every public university department, unfunded and effective this semester. Nobody asked whether departments had the staff time to do it; the form just appears in the portal.`,
+  effects:{bud:-5, mor:-5}
+},
+{
+  title: "A Rival University's Scandal",
+  text: (S) => `A peer institution's very public scandal dominates higher-ed news for a month, making your university look comparatively boring and responsible by contrast. Administrators everywhere are in an unusually generous, relieved mood.`,
+  effects:{dean:10}
+},
+{
+  title: "A Federal Grant Freeze",
+  text: (S) => `A federal funding freeze, aimed at programs with no connection to your department, tightens the overall research-funding climate across campus anyway. Money that might have trickled toward your budget requests quietly stops trickling.`,
+  effects:{bud:-10}
+},
+{
+  title: "A Popular President Steps Down",
+  text: (S) => `The university's widely respected president announces an unexpected retirement. Nothing about your department changes on paper, but morale dips campus-wide as everyone quietly braces for whoever comes next.`,
+  effects:{mor:-5, dean:-5}
+},
+{
+  title: "A University-Wide Enrollment Surge",
+  text: (S) => `A surprise surge in first-year applications this cycle — a demographic anomaly nobody in admissions fully predicted — means more tuition revenue moving through the university than expected. Departments across campus quietly find a little more room in their budgets.`,
+  effects:{bud:10}
+},
+{
+  title: "A Faculty Union Contract Is Ratified",
+  text: (S) => `A new university-wide faculty contract is ratified after a year of negotiation nobody in your department was directly part of, with modest raises and clearer service-load language. It's a genuine, if incidental, win that lands in every department's mailbox the same week.`,
+  effects:{mor:10}
+},
+{
+  title: "An Accreditor's Policy Shift",
+  text: (S) => `The regional accrediting body quietly updates its standards in a way that happens to favor programs shaped like yours. No extra work required — the ground just shifted slightly in your favor.`,
+  effects:{dean:5, pc:5}
+},
+{
+  title: "A University-Wide Cybersecurity Incident",
+  text: (S) => `A data breach elsewhere on campus forces an emergency password reset, weeks of IT lockdowns, and a general sense of institutional embarrassment. Nobody in your department did anything wrong, and everyone still has to change their password three times.`,
+  effects:{mor:-5, dean:-5}
+},
+{
+  title: "The Governor Vetoes Higher-Ed Funding",
+  text: (S) => `A surprise line-item veto guts a chunk of the state's higher-education appropriation days before the fiscal year closes, forcing an emergency, university-wide rescission with no time to plan around it.`,
+  effects:{bud:-15}
+}
+];
+
 // ---------------- ENDINGS ----------------
 const ZERO_ENDINGS = {
   dean: {
@@ -1465,12 +1549,54 @@ function renderStart(){
     STATE.deptName = document.getElementById("deptNameInput").value.trim();
     STATE.week = 0;
     STATE.scenarios = shuffled(SCENARIOS).slice(0, STATE.totalWeeks);
-    renderScenario();
+    enterWeek();
   };
   document.getElementById("disclaimerBtn").onclick = () => {
     const box = document.getElementById("disclaimerBox");
     box.style.display = box.style.display === "none" ? "block" : "none";
   };
+}
+
+function pickExternalEvent(){
+  if(STATE.usedExternal.length >= EXTERNAL_EVENTS.length){
+    STATE.usedExternal = [];
+  }
+  const available = EXTERNAL_EVENTS
+    .map((_, i) => i)
+    .filter(i => !STATE.usedExternal.includes(i));
+  const idx = available[Math.floor(Math.random() * available.length)];
+  STATE.usedExternal.push(idx);
+  return EXTERNAL_EVENTS[idx];
+}
+
+function enterWeek(){
+  if(STATE.week >= STATE.scenarios.length){
+    renderEnding();
+    return;
+  }
+  if(Math.random() < 0.25){
+    renderExternalEvent(pickExternalEvent());
+  } else {
+    renderScenario();
+  }
+}
+
+function renderExternalEvent(ev){
+  const before = {...STATE.stats};
+  applyEffects(ev.effects);
+  STATE.log.push({week: STATE.week+1, title: "[External Event] " + ev.title, choice: "(automatic — no choice)"});
+  STATE.continuation = "returnToWeek";
+  evaluateAfterChoice();
+  const deltas = computeDeltas(before);
+  const memo = document.getElementById("memo");
+  memo.innerHTML = `
+    ${renderLetterhead(`WEEK ${STATE.week + 1} OF ${STATE.scenarios.length} &mdash; EXTERNAL EVENT`)}
+    ${renderGauges(deltas)}
+    <div class="scene-title">${ev.title}</div>
+    <div class="scene-text">${ev.text(STATE)}</div>
+    <button class="continue-btn" id="nextBtn">${nextButtonLabel()} &rarr;</button>
+  `;
+  document.getElementById("nextBtn").onclick = advanceAfterChoice;
 }
 
 function renderScenario(){
@@ -1522,7 +1648,7 @@ function advanceAfterChoice(){
     renderScenario();
   } else {
     STATE.week += 1;
-    renderScenario();
+    enterWeek();
   }
 }
 
@@ -1649,6 +1775,7 @@ function renderEnding(){
     STATE.continuation = "advanceWeek";
     STATE.usedLowFreq = [];
     STATE.pendingLowFreq = null;
+    STATE.usedExternal = [];
     renderStart();
   };
 }
