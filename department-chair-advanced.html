@@ -2551,6 +2551,12 @@ const GRANT_VALUE_PUB_FACTOR = 0.05; // +5% avg grant size per Publication
 const GRANT_VALUE_REP_FACTOR = 0.1;  // +10% avg grant size per Reputation point
 const INDIRECT_COST_RATE = 0.5;      // negotiated indirect cost rate: 50% of grant $ recovered as Revenue
 
+// A new department doesn't start with a running clock. The administration
+// hands over a one-time startup budget to get minimally staffed, and only
+// once the chair clicks "Start the Semester" does production/understaffing
+// begin — see beginSemester() and the idleLoop() guard on semesterStarted.
+const STARTING_LUMP_SUM = 200000;
+
 const IDLE_BUILDING_DEFS = {
   facultyOffice:     { name: "Faculty Office",     baseCost: 25000,  ratio: 1.15, costResource: "revenue",     desc: "Each office houses one faculty hire." },
   classroom:         { name: "Classroom",          baseCost: 40000,  ratio: 1.15, costResource: "revenue",     desc: "Produces Tuition on its own — new sections, new seats." },
@@ -2586,8 +2592,9 @@ let idleIntervalStarted = false;
 function freshIdleRun(reputation){
   return {
     reputation: reputation || 0,
+    semesterStarted: false,
     tuition: 0,
-    revenue: 0,
+    revenue: STARTING_LUMP_SUM,
     majors: 0,
     seats: 0,
     grants: 0,
@@ -2669,7 +2676,12 @@ function loadIdleSaveRaw(){
 }
 
 function startIdleGame(){
-  IDLE = loadIdleSaveRaw() || freshIdleRun(0);
+  const loaded = loadIdleSaveRaw();
+  IDLE = loaded || freshIdleRun(0);
+  // A save from before the startup-budget phase existed has no semesterStarted
+  // field at all — treat it as already-started rather than sending an
+  // in-progress department back to setup and re-granting the lump sum.
+  if(loaded && IDLE.semesterStarted == null) IDLE.semesterStarted = true;
   IDLE.lastTick = Date.now();
   if(!idleIntervalStarted){
     idleIntervalStarted = true;
@@ -2681,6 +2693,10 @@ function startIdleGame(){
 function idleLoop(){
   if(!IDLE) return;
   const now = Date.now();
+  if(!IDLE.semesterStarted){
+    IDLE.lastTick = now; // no backlog accrues while the chair is still staffing up
+    return;
+  }
   const dt = Math.min((now - (IDLE.lastTick || now)) / 1000, 2);
   IDLE.lastTick = now;
   idleTick(dt);
@@ -2843,6 +2859,7 @@ function collapseDepartment(){
 }
 
 function doPrestige(){
+  if(!IDLE.semesterStarted) return;
   const gained = computeReputationGain(IDLE.lifetimeEarned);
   const rep = IDLE.reputation + gained;
   IDLE = freshIdleRun(rep);
@@ -2878,7 +2895,16 @@ function sellTheStack(){
 }
 
 function recruitStudent(){
+  if(!IDLE.semesterStarted) return;
   IDLE.seats += 1;
+  renderIdle();
+}
+
+function beginSemester(){
+  if(IDLE.semesterStarted) return;
+  IDLE.semesterStarted = true;
+  IDLE.lastTick = Date.now();
+  IDLE.understaffedSince = null;
   renderIdle();
 }
 
@@ -3029,6 +3055,13 @@ function renderIdle(){
       <div class="idle-res rep"><span class="lbl">Reputation</span><span class="val">${IDLE.reputation}</span></div>
     </div>
     ${rateNote(`Tuition is gross income raised to date and is never spent directly. Revenue is your actual budget — Tuition plus indirect cost recovery from Grants flow into it, and it's what pays for every hire and building below.`)}
+    ${!IDLE.semesterStarted ? `
+    <div class="idle-section">
+      <div class="idle-section-title">Before the Semester Begins</div>
+      <div class="idle-section-sub">The administration has authorized a one-time startup budget of $${fmtIdle(STARTING_LUMP_SUM)}, already added to Revenue above. Spend it on Faculty, Adjuncts, Office Staff, and buildings below to minimally staff the department &mdash; nothing accrues and no one can collapse from understaffing until you start the clock.</div>
+      <button class="continue-btn" id="beginSemesterBtn">Start the Semester</button>
+    </div>
+    ` : `
     <div class="idle-morale">
       <div class="gauge-label"><span>Faculty Morale</span><span>${Math.round(IDLE.morale)}</span></div>
       <div class="gauge-track"><div class="gauge-fill ${gaugeClass(IDLE.morale)}" style="width:${IDLE.morale}%"></div></div>
@@ -3036,6 +3069,7 @@ function renderIdle(){
     ${tier3Unlocked ? rateNote(`The books are open now &mdash; every line below shows exactly what it's worth. Combined output right now: ${fmtRate(rates.totalRate)}/s across all resources, which is what your next Reputation gain (${projectedRep}) is calculated from.`) : ""}
 
     <button class="continue-btn" id="recruitBtn">Recruit a Student (+1 Seat)</button>
+    `}
 
     <div class="idle-section">
       <div class="idle-section-title">Faculty &mdash; ${IDLE.faculty} hired / ${IDLE.facultyOffice} offices</div>
@@ -3141,10 +3175,13 @@ function renderIdle(){
     ` : ""}
     ` : ""}
 
-    <button class="idle-prestige-btn" id="prestigeBtn">Move to a New University &mdash; bank ${projectedRep} Reputation and start over</button>
+    ${IDLE.semesterStarted ? `<button class="idle-prestige-btn" id="prestigeBtn">Move to a New University &mdash; bank ${projectedRep} Reputation and start over</button>` : ""}
   `;
 
-  document.getElementById("recruitBtn").onclick = recruitStudent;
+  const beginSemesterBtn = document.getElementById("beginSemesterBtn");
+  if(beginSemesterBtn) beginSemesterBtn.onclick = beginSemester;
+  const recruitBtn = document.getElementById("recruitBtn");
+  if(recruitBtn) recruitBtn.onclick = recruitStudent;
   document.getElementById("hireFacultyBtn").onclick = hireFaculty;
   document.getElementById("hireAdjunctBtn").onclick = hireAdjunct;
   document.getElementById("hireStaffBtn").onclick = hireOfficeStaff;
@@ -3152,7 +3189,8 @@ function renderIdle(){
   document.getElementById("buildClassroomBtn").onclick = () => buildIdleBuilding("classroom");
   document.getElementById("buildProgramBtn").onclick = () => buildIdleBuilding("academicProgram");
   document.getElementById("buildLabBtn").onclick = () => buildIdleBuilding("lab");
-  document.getElementById("prestigeBtn").onclick = doPrestige;
+  const prestigeBtn = document.getElementById("prestigeBtn");
+  if(prestigeBtn) prestigeBtn.onclick = doPrestige;
   if(tier2Unlocked){
     document.getElementById("buildResearchCenterBtn").onclick = () => buildIdleBuilding("researchCenter");
     document.getElementById("buildDevOfficeBtn").onclick = () => buildIdleBuilding("developmentOffice");
