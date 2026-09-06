@@ -2540,6 +2540,17 @@ const TERM_SECONDS = 120;
 const TUITION_PER_SEAT_PER_SECOND = TUITION_PER_SEAT_PER_TERM / TERM_SECONDS; // $10/s
 const SEATS_PER_MAJOR = 4; // a typical full course load recruited alongside each new major
 
+// Grant economics: individual grants start small ($10k average) and grow with
+// Publications (a stronger track record) and Reputation (a stronger name),
+// capped at $15M/grant so a single award never becomes absurd. The university
+// doesn't keep the whole grant — a negotiated indirect cost rate (F&A) skims
+// a cut off the top as overhead recovery, which is real Revenue.
+const GRANT_VALUE_BASE = 10000;      // avg grant size at the very start, $
+const GRANT_VALUE_CAP = 15000000;    // avg grant size ceiling, $ (reachable by tier 3-ish)
+const GRANT_VALUE_PUB_FACTOR = 0.05; // +5% avg grant size per Publication
+const GRANT_VALUE_REP_FACTOR = 0.1;  // +10% avg grant size per Reputation point
+const INDIRECT_COST_RATE = 0.5;      // negotiated indirect cost rate: 50% of grant $ recovered as Revenue
+
 const IDLE_BUILDING_DEFS = {
   facultyOffice:     { name: "Faculty Office",     baseCost: 15,  ratio: 1.15, costResource: "tuition",     desc: "Each office houses one faculty hire." },
   classroom:         { name: "Classroom",          baseCost: 25,  ratio: 1.15, costResource: "tuition",     desc: "Produces Tuition on its own — new sections, new seats." },
@@ -2576,6 +2587,7 @@ function freshIdleRun(reputation){
   return {
     reputation: reputation || 0,
     tuition: 0,
+    revenue: 0,
     majors: 0,
     seats: 0,
     grants: 0,
@@ -2719,6 +2731,20 @@ function idleRates(){
   const grantsRate = IDLE.research * perResearchGrants;
   const grantsCap = IDLE.lab > 0 ? IDLE.research * GRANT_CAP_PER_FACULTY : 0;
 
+  // Average size of a single grant: starts at $10k, grows with Publications
+  // (track record) and Reputation (name recognition), capped at $15M. This is
+  // a display/theoretical rate — idleTick() re-derives it against the actual,
+  // capped grants gained each tick so Revenue never counts a grant that was
+  // blocked by a faculty member's personal cap.
+  const grantValuePubFactor = 1 + IDLE.publications * GRANT_VALUE_PUB_FACTOR;
+  const grantValueRepFactor = 1 + IDLE.reputation * GRANT_VALUE_REP_FACTOR;
+  const avgGrantValue = Math.min(GRANT_VALUE_CAP, GRANT_VALUE_BASE * grantValuePubFactor * grantValueRepFactor);
+
+  // Indirect costs: the negotiated cut (50%) of grant dollars the university
+  // recovers as overhead, which counts toward Revenue alongside Tuition.
+  const grantRevenueGrossRate = grantsRate * avgGrantValue;
+  const indirectCostRevenueRate = grantRevenueGrossRate * INDIRECT_COST_RATE;
+
   // Publications: a base rate that only needs Research assignment (faculty
   // publish on their own effort), no Lab required. A Research Center adds a
   // further boost on top once it's built.
@@ -2751,6 +2777,7 @@ function idleRates(){
     isShort, mult,
     majorsRate, seatsRate,
     tuitionRate, grantsRate, grantsCap, publicationsRate, endowmentRate, prestigeRate, prRate, stateFundingRate, accredStandardsRate, edTechRate,
+    avgGrantValue, grantRevenueGrossRate, indirectCostRevenueRate,
     perTeaching, perAdjunct, perClassroom, perTA,
     perResearchGrants, perResearchPub, perResearchPubBase, perResearchPubBoost, perRA, perDevOffice, perCommOffice, perGovRelations, perAccredCouncil, perEdTechDivision, perService,
     totalRate: tuitionRate + grantsRate + publicationsRate + endowmentRate + prestigeRate + prRate + stateFundingRate + accredStandardsRate + edTechRate
@@ -2777,6 +2804,14 @@ function idleTick(dtSeconds){
   const grantsBefore = IDLE.grants;
   IDLE.grants = Math.min(IDLE.grants + r.grantsRate * dtSeconds, grantsCeiling);
   const grantsGainedPerSec = dtSeconds > 0 ? (IDLE.grants - grantsBefore) / dtSeconds : 0;
+
+  // Revenue: real dollars raised. Tuition plus the indirect cost recovery
+  // (the negotiated cut, see INDIRECT_COST_RATE) off actual grants won this
+  // tick — using grantsGainedPerSec rather than r.grantsRate so a faculty
+  // member capped out on grants doesn't keep generating phantom Revenue.
+  const grantRevenueGrossPerSec = grantsGainedPerSec * r.avgGrantValue;
+  const indirectCostRevenuePerSec = grantRevenueGrossPerSec * INDIRECT_COST_RATE;
+  IDLE.revenue += (r.tuitionRate + indirectCostRevenuePerSec) * dtSeconds;
 
   IDLE.publications += r.publicationsRate * dtSeconds;
   IDLE.endowment += r.endowmentRate * dtSeconds;
@@ -2980,6 +3015,7 @@ function renderIdle(){
     ${warningHtml}
     <div class="idle-resources">
       <div class="idle-res"><span class="lbl">Tuition</span><span class="val">${fmtIdle(IDLE.tuition)}</span></div>
+      <div class="idle-res"><span class="lbl">Revenue</span><span class="val">$${fmtIdle(IDLE.revenue)}</span></div>
       <div class="idle-res"><span class="lbl">Majors</span><span class="val">${fmtIdle(IDLE.majors)}</span></div>
       <div class="idle-res"><span class="lbl">Seats</span><span class="val">${fmtIdle(IDLE.seats)}</span></div>
       <div class="idle-res"><span class="lbl">Grants</span><span class="val">${fmtIdle(IDLE.grants)}</span></div>
@@ -3028,6 +3064,7 @@ function renderIdle(){
       <div class="idle-section-title">Buildings</div>
       ${idleBuyBtn("buildOfficeBtn", `Faculty Office (${IDLE.facultyOffice})`, officeCost, IDLE.tuition >= officeCost)}
       ${tier3Unlocked ? rateNote(`Classroom: +${fmtRate(rates.perClassroom)} Majors/s, +${fmtRate(rates.perClassroom * SEATS_PER_MAJOR)} Seats/s each &middot; Academic Program: +10% recruiting multiplier each &middot; Lab: +${fmtRate(rates.perResearchGrants)} Grants/s per Research faculty (capped at ${GRANT_CAP_PER_FACULTY} each) &middot; Tuition itself is $${TUITION_PER_SEAT_PER_SECOND}/Seat/s`) : ""}
+      ${tier3Unlocked ? rateNote(`Average grant size: $${fmtIdle(rates.avgGrantValue)} (grows with Publications &amp; Reputation, capped at $${fmtIdle(GRANT_VALUE_CAP)}) &middot; Indirect cost rate: ${Math.round(INDIRECT_COST_RATE * 100)}% of grant $ recovered as Revenue &middot; Revenue = Tuition + Indirect Costs`) : ""}
       ${idleBuyBtn("buildClassroomBtn", `Classroom (${IDLE.classroom})`, classroomCost, IDLE.tuition >= classroomCost)}
       ${idleBuyBtn("buildProgramBtn", `Academic Program (${IDLE.academicProgram})`, programCost, IDLE.tuition >= programCost)}
       ${idleBuyBtn("buildLabBtn", `Lab (${IDLE.lab})`, labCost, IDLE.tuition >= labCost)}
