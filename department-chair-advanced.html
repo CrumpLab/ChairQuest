@@ -28,6 +28,36 @@
     margin: 28px auto 60px;
     padding: 0 16px;
   }
+  .dev-mode-toggle{
+    position: fixed;
+    top: 12px;
+    right: 14px;
+    z-index: 1000;
+    background: var(--manila);
+    border: 1px solid var(--line);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+    border-radius: 2px;
+    padding: 6px 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink);
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .dev-mode-toggle label{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .dev-mode-toggle input{ cursor: pointer; }
+  .dev-mode-toggle.active{
+    background: var(--oxblood);
+    border-color: var(--oxblood);
+    color: var(--paper);
+  }
   .memo{
     background: var(--paper);
     border: 1px solid var(--line);
@@ -326,6 +356,12 @@
 </style>
 </head>
 <body>
+<div class="dev-mode-toggle" id="devModeToggle">
+  <label>
+    <input type="checkbox" id="devModeCheckbox">
+    <span>Dev Mode</span>
+  </label>
+</div>
 <div class="desk">
   <div class="memo" id="memo"></div>
   <div class="footer-note">OFFICE OF THE CHAIR &middot; INTERNAL CORRESPONDENCE &middot; RETAIN FOR YOUR FILES</div>
@@ -2589,6 +2625,14 @@ const IDLE_HIRE_DEFS = {
 let IDLE = null;
 let idleIntervalStarted = false;
 
+// Dev Mode: a playtesting toggle (top-right corner), independent of any
+// save. Forces every rate-transparency note to show regardless of the
+// Tier 3 unlock — see showRates in renderIdle(). Never affects actual
+// progression gates or resource values.
+const DEV_MODE_KEY = "chairquest_dev_mode";
+let DEV_MODE = false;
+try{ DEV_MODE = localStorage.getItem(DEV_MODE_KEY) === "1"; }catch(e){}
+
 function freshIdleRun(reputation){
   return {
     reputation: reputation || 0,
@@ -3021,6 +3065,10 @@ function renderIdle(){
 
   const TIER3_PRESTIGE_REQUIRED = 50;
   const tier3Unlocked = tier2Unlocked && IDLE.prestige >= TIER3_PRESTIGE_REQUIRED;
+  // Dev Mode forces every rate-transparency note to show regardless of the
+  // Tier 3 unlock — it only affects visibility of numbers, never the actual
+  // progression gates (tier2Unlocked/tier3Unlocked/etc. are untouched).
+  const showRates = tier3Unlocked || DEV_MODE;
   const commOfficeCost = idleCost(IDLE_BUILDING_DEFS.communicationsOffice.baseCost, IDLE_BUILDING_DEFS.communicationsOffice.ratio, IDLE.communicationsOffice);
   const satelliteCost = idleCost(IDLE_BUILDING_DEFS.satelliteCampus.baseCost, IDLE_BUILDING_DEFS.satelliteCampus.ratio, IDLE.satelliteCampus);
 
@@ -3066,7 +3114,7 @@ function renderIdle(){
       <div class="gauge-label"><span>Faculty Morale</span><span>${Math.round(IDLE.morale)}</span></div>
       <div class="gauge-track"><div class="gauge-fill ${gaugeClass(IDLE.morale)}" style="width:${IDLE.morale}%"></div></div>
     </div>
-    ${tier3Unlocked ? rateNote(`The books are open now &mdash; every line below shows exactly what it's worth. Combined output right now: ${fmtRate(rates.totalRate)}/s across all resources, which is what your next Reputation gain (${projectedRep}) is calculated from.`) : ""}
+    ${showRates ? rateNote(`The books are open now &mdash; every line below shows exactly what it's worth. Combined output right now: ${fmtRate(rates.totalRate)}/s across all resources, which is what your next Reputation gain (${projectedRep}) is calculated from.`) : ""}
 
     <button class="continue-btn" id="recruitBtn">Recruit a Student (+1 Seat)</button>
     `}
@@ -3074,9 +3122,9 @@ function renderIdle(){
     <div class="idle-section">
       <div class="idle-section-title">Faculty &mdash; ${IDLE.faculty} hired / ${IDLE.facultyOffice} offices</div>
       <div class="idle-jobs">
-        <div class="job-row"><span>Teaching: ${IDLE.teaching}${tier3Unlocked ? ` (+${fmtRate(rates.perTeaching)} Majors/s, +${fmtRate(rates.perTeaching * SEATS_PER_MAJOR)} Seats/s each)` : ""}</span><span><button class="job-btn" data-from="teaching" data-to="research">&rarr; Research</button><button class="job-btn" data-from="teaching" data-to="service">&rarr; Service</button></span></div>
-        <div class="job-row"><span>Research: ${IDLE.research}${tier3Unlocked ? ` (${IDLE.lab > 0 ? `+${fmtRate(rates.perResearchGrants)} Grants/s, capped at ${GRANT_CAP_PER_FACULTY} each` : "no Lab yet for Grants"} + ${fmtRate(rates.perResearchPub)} Publications/s each &mdash; both also lift Morale)` : ""}</span><span><button class="job-btn" data-from="research" data-to="teaching">&rarr; Teaching</button><button class="job-btn" data-from="research" data-to="service">&rarr; Service</button></span></div>
-        <div class="job-row"><span>Service: ${IDLE.service}${IDLE.academicProgram > 0 ? ` (need ${reqAssessmentService}+ for assessments)` : ""}${tier3Unlocked ? ` (+${fmtRate(rates.perService)} Morale/s each)` : ""}</span><span><button class="job-btn" data-from="service" data-to="teaching">&rarr; Teaching</button><button class="job-btn" data-from="service" data-to="research">&rarr; Research</button></span></div>
+        <div class="job-row"><span>Teaching: ${IDLE.teaching}${showRates ? ` (+${fmtRate(rates.perTeaching)} Majors/s, +${fmtRate(rates.perTeaching * SEATS_PER_MAJOR)} Seats/s each)` : ""}</span><span><button class="job-btn" data-from="teaching" data-to="research">&rarr; Research</button><button class="job-btn" data-from="teaching" data-to="service">&rarr; Service</button></span></div>
+        <div class="job-row"><span>Research: ${IDLE.research}${showRates ? ` (${IDLE.lab > 0 ? `+${fmtRate(rates.perResearchGrants)} Grants/s, capped at ${GRANT_CAP_PER_FACULTY} each` : "no Lab yet for Grants"} + ${fmtRate(rates.perResearchPub)} Publications/s each &mdash; both also lift Morale)` : ""}</span><span><button class="job-btn" data-from="research" data-to="teaching">&rarr; Teaching</button><button class="job-btn" data-from="research" data-to="service">&rarr; Service</button></span></div>
+        <div class="job-row"><span>Service: ${IDLE.service}${IDLE.academicProgram > 0 ? ` (need ${reqAssessmentService}+ for assessments)` : ""}${showRates ? ` (+${fmtRate(rates.perService)} Morale/s each)` : ""}</span><span><button class="job-btn" data-from="service" data-to="teaching">&rarr; Teaching</button><button class="job-btn" data-from="service" data-to="research">&rarr; Research</button></span></div>
       </div>
       ${idleBuyBtn("hireFacultyBtn", "Hire Faculty", facultyCost, IDLE.revenue >= facultyCost, IDLE.faculty >= IDLE.facultyOffice)}
       ${IDLE.faculty >= IDLE.facultyOffice ? `<div class="idle-section-sub idle-button-note">No open offices &mdash; build another Faculty Office first.</div>` : ""}
@@ -3085,7 +3133,7 @@ function renderIdle(){
     <div class="idle-section">
       <div class="idle-section-title">Adjuncts &mdash; ${IDLE.adjuncts} (need ${reqAdj}+)</div>
       <div class="idle-section-sub">Always teaching. No office required &mdash; they share whatever space is left.</div>
-      ${tier3Unlocked ? rateNote(`+${fmtRate(rates.perAdjunct)} Majors/s, +${fmtRate(rates.perAdjunct * SEATS_PER_MAJOR)} Seats/s each`) : ""}
+      ${showRates ? rateNote(`+${fmtRate(rates.perAdjunct)} Majors/s, +${fmtRate(rates.perAdjunct * SEATS_PER_MAJOR)} Seats/s each`) : ""}
       ${idleBuyBtn("hireAdjunctBtn", "Hire Adjunct", adjunctCost, IDLE.revenue >= adjunctCost)}
     </div>
 
@@ -3098,8 +3146,8 @@ function renderIdle(){
     <div class="idle-section">
       <div class="idle-section-title">Buildings</div>
       ${idleBuyBtn("buildOfficeBtn", `Faculty Office (${IDLE.facultyOffice})`, officeCost, IDLE.revenue >= officeCost)}
-      ${tier3Unlocked ? rateNote(`Classroom: +${fmtRate(rates.perClassroom)} Majors/s, +${fmtRate(rates.perClassroom * SEATS_PER_MAJOR)} Seats/s each &middot; Academic Program: +10% recruiting multiplier each &middot; Lab: +${fmtRate(rates.perResearchGrants)} Grants/s per Research faculty (capped at ${GRANT_CAP_PER_FACULTY} each) &middot; Tuition itself is $${TUITION_PER_SEAT_PER_SECOND}/Seat/s`) : ""}
-      ${tier3Unlocked ? rateNote(`Average grant size: $${fmtIdle(rates.avgGrantValue)} (grows with Publications &amp; Reputation, capped at $${fmtIdle(GRANT_VALUE_CAP)}) &middot; Indirect cost rate: ${Math.round(INDIRECT_COST_RATE * 100)}% of grant $ recovered as Revenue &middot; Revenue = Tuition + Indirect Costs`) : ""}
+      ${showRates ? rateNote(`Classroom: +${fmtRate(rates.perClassroom)} Majors/s, +${fmtRate(rates.perClassroom * SEATS_PER_MAJOR)} Seats/s each &middot; Academic Program: +10% recruiting multiplier each &middot; Lab: +${fmtRate(rates.perResearchGrants)} Grants/s per Research faculty (capped at ${GRANT_CAP_PER_FACULTY} each) &middot; Tuition itself is $${TUITION_PER_SEAT_PER_SECOND}/Seat/s`) : ""}
+      ${showRates ? rateNote(`Average grant size: $${fmtIdle(rates.avgGrantValue)} (grows with Publications &amp; Reputation, capped at $${fmtIdle(GRANT_VALUE_CAP)}) &middot; Indirect cost rate: ${Math.round(INDIRECT_COST_RATE * 100)}% of grant $ recovered as Revenue &middot; Revenue = Tuition + Indirect Costs`) : ""}
       ${idleBuyBtn("buildClassroomBtn", `Classroom (${IDLE.classroom})`, classroomCost, IDLE.revenue >= classroomCost)}
       ${idleBuyBtn("buildProgramBtn", `Academic Program (${IDLE.academicProgram})`, programCost, IDLE.revenue >= programCost)}
       ${idleBuyBtn("buildLabBtn", `Lab (${IDLE.lab})`, labCost, IDLE.revenue >= labCost)}
@@ -3109,7 +3157,7 @@ function renderIdle(){
     ${tier2Unlocked ? `
     <div class="idle-section">
       <div class="idle-section-title">School &amp; College</div>
-      ${tier3Unlocked ? rateNote(`Research Center: +${fmtRate(rates.perResearchPubBoost)} bonus Publications/s per Research faculty, on top of the base rate &middot; Development Office: +${fmtRate(rates.perDevOffice)} Endowment/s each &middot; Library: +5% global multiplier each`) : ""}
+      ${showRates ? rateNote(`Research Center: +${fmtRate(rates.perResearchPubBoost)} bonus Publications/s per Research faculty, on top of the base rate &middot; Development Office: +${fmtRate(rates.perDevOffice)} Endowment/s each &middot; Library: +5% global multiplier each`) : ""}
       ${idleBuyBtn("buildResearchCenterBtn", `Research Center (${IDLE.researchCenter})`, researchCenterCost, IDLE.grants >= researchCenterCost, false, "Grants")}
       ${IDLE.doctoralProgram >= 1
         ? `<div class="idle-established">Doctoral Program &mdash; established</div>`
@@ -3123,8 +3171,8 @@ function renderIdle(){
       <div class="idle-section-title">Grad Students &mdash; ${IDLE.gradStudents}</div>
       <div class="idle-section-sub">Cheap labor. TAs help teach, RAs help research.</div>
       <div class="idle-jobs">
-        <div class="job-row"><span>TA: ${IDLE.ta}${tier3Unlocked ? ` (+${fmtRate(rates.perTA)} Majors/s, +${fmtRate(rates.perTA * SEATS_PER_MAJOR)} Seats/s each)` : ""}</span><span><button class="job-btn" data-from="ta" data-to="ra">&rarr; RA</button></span></div>
-        <div class="job-row"><span>RA: ${IDLE.ra}${tier3Unlocked ? ` (${IDLE.researchCenter > 0 ? `+${fmtRate(rates.perRA)} Publications/s` : "needs a Research Center"} each)` : ""}</span><span><button class="job-btn" data-from="ra" data-to="ta">&rarr; TA</button></span></div>
+        <div class="job-row"><span>TA: ${IDLE.ta}${showRates ? ` (+${fmtRate(rates.perTA)} Majors/s, +${fmtRate(rates.perTA * SEATS_PER_MAJOR)} Seats/s each)` : ""}</span><span><button class="job-btn" data-from="ta" data-to="ra">&rarr; RA</button></span></div>
+        <div class="job-row"><span>RA: ${IDLE.ra}${showRates ? ` (${IDLE.researchCenter > 0 ? `+${fmtRate(rates.perRA)} Publications/s` : "needs a Research Center"} each)` : ""}</span><span><button class="job-btn" data-from="ra" data-to="ta">&rarr; TA</button></span></div>
       </div>
       ${idleBuyBtn("hireGradBtn", "Hire Grad Student", gradCost, IDLE.revenue >= gradCost)}
     </div>` : ""}
@@ -3223,6 +3271,19 @@ function renderIdle(){
     btn.onclick = () => reassignFaculty(btn.dataset.from, btn.dataset.to);
   });
 }
+
+(function initDevModeToggle(){
+  const toggleEl = document.getElementById("devModeToggle");
+  const checkbox = document.getElementById("devModeCheckbox");
+  checkbox.checked = DEV_MODE;
+  toggleEl.classList.toggle("active", DEV_MODE);
+  checkbox.onchange = () => {
+    DEV_MODE = checkbox.checked;
+    try{ localStorage.setItem(DEV_MODE_KEY, DEV_MODE ? "1" : "0"); }catch(e){}
+    toggleEl.classList.toggle("active", DEV_MODE);
+    if(IDLE) renderIdle();
+  };
+})();
 
 renderStart();
 </script>
