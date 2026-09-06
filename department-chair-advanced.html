@@ -283,6 +283,7 @@
     font-family:'Courier New',monospace; font-size:11.5px; color:#5a5340; margin:-4px 0 8px;
   }
   .idle-rate-note{ color: var(--navy); }
+  .idle-button-note{ margin: 8px 0 0; }
   .idle-jobs{
     font-family:'Courier New',monospace; font-size:12.5px;
     display:flex; flex-direction:column; gap:5px; margin-bottom:10px;
@@ -2524,6 +2525,20 @@ function renderEnding(){
 const IDLE_SAVE_KEY = "chairquest_idle_save_v1";
 const IDLE_TICK_MS = 250;
 const UNDERSTAFFED_GRACE_SECONDS = 45;
+const GRANT_CAP_PER_FACULTY = 5; // each Research faculty member can only hold so many active grants at once
+const MORALE_PER_GRANT = 3;      // landing a grant is a real morale boost
+const MORALE_PER_PUBLICATION = 2; // so is getting a paper out
+
+// Tuition economics: $400/credit, most courses are 3 credits, so one filled
+// seat is worth $1,200/term. A "term" here is 120 real seconds of play.
+// Seats — not faculty headcount — are what actually generate Tuition; Majors
+// is a parallel, slower population stat recruitment also builds.
+const TUITION_PER_CREDIT = 400;
+const CREDITS_PER_COURSE = 3;
+const TUITION_PER_SEAT_PER_TERM = TUITION_PER_CREDIT * CREDITS_PER_COURSE; // $1,200
+const TERM_SECONDS = 120;
+const TUITION_PER_SEAT_PER_SECOND = TUITION_PER_SEAT_PER_TERM / TERM_SECONDS; // $10/s
+const SEATS_PER_MAJOR = 4; // a typical full course load recruited alongside each new major
 
 const IDLE_BUILDING_DEFS = {
   facultyOffice:     { name: "Faculty Office",     baseCost: 15,  ratio: 1.15, costResource: "tuition",     desc: "Each office houses one faculty hire." },
@@ -2561,6 +2576,8 @@ function freshIdleRun(reputation){
   return {
     reputation: reputation || 0,
     tuition: 0,
+    majors: 0,
+    seats: 0,
     grants: 0,
     publications: 0,
     endowment: 0,
@@ -2678,18 +2695,36 @@ function idleRates(){
 
   const programMult = 1 + IDLE.academicProgram * 0.1;
   const prMult = 1 + IDLE.pr * 0.01;
-  const tuitionMult = mult * programMult * prMult;
+  const recruitMult = mult * programMult * prMult;
 
-  const perTeaching = 0.5 * tuitionMult;
-  const perAdjunct = 0.3 * tuitionMult;
-  const perClassroom = 0.6 * tuitionMult;
-  const perTA = 0.15 * tuitionMult;
-  const tuitionRate = IDLE.teaching * perTeaching + IDLE.adjuncts * perAdjunct + IDLE.classroom * perClassroom + IDLE.ta * perTA;
+  // Recruitment builds two population stats together: Majors (the slower,
+  // secondary count) and Seats (the FTE that actually pays Tuition). Every
+  // unit of recruiting effort produces both, at a fixed ratio.
+  const perTeaching = 0.02 * recruitMult;   // Majors/s
+  const perAdjunct = 0.012 * recruitMult;
+  const perClassroom = 0.024 * recruitMult;
+  const perTA = 0.006 * recruitMult;
+  const majorsRate = IDLE.teaching * perTeaching + IDLE.adjuncts * perAdjunct + IDLE.classroom * perClassroom + IDLE.ta * perTA;
+  const seatsRate = majorsRate * SEATS_PER_MAJOR;
 
-  const perResearchGrants = IDLE.lab > 0 ? 0.4 * (1 + (IDLE.lab - 1) * 0.1) * mult : 0;
+  // Tuition is calculated from currently-enrolled Seats, not from faculty
+  // headcount directly — $10/seat/second, derived from $400/credit at 3
+  // credits/course over a 120-second "term."
+  const tuitionRate = IDLE.seats * TUITION_PER_SEAT_PER_SECOND;
+
+  // Grants: needs Research assignment AND a Lab. Each Research faculty member
+  // can only hold so many active grants at once (GRANT_CAP_PER_FACULTY) —
+  // the cap is enforced in idleTick, against the stock, not here.
+  const perResearchGrants = IDLE.lab > 0 ? 0.05 * (1 + (IDLE.lab - 1) * 0.1) * mult : 0;
   const grantsRate = IDLE.research * perResearchGrants;
+  const grantsCap = IDLE.lab > 0 ? IDLE.research * GRANT_CAP_PER_FACULTY : 0;
 
-  const perResearchPub = IDLE.researchCenter > 0 ? 0.3 * mult : 0;
+  // Publications: a base rate that only needs Research assignment (faculty
+  // publish on their own effort), no Lab required. A Research Center adds a
+  // further boost on top once it's built.
+  const perResearchPubBase = 0.04 * mult;
+  const perResearchPubBoost = IDLE.researchCenter > 0 ? 0.3 * mult : 0;
+  const perResearchPub = perResearchPubBase + perResearchPubBoost;
   const perRA = IDLE.researchCenter > 0 ? 0.15 * mult : 0;
   const publicationsRate = IDLE.research * perResearchPub + IDLE.ra * perRA;
 
@@ -2714,9 +2749,10 @@ function idleRates(){
 
   return {
     isShort, mult,
-    tuitionRate, grantsRate, publicationsRate, endowmentRate, prestigeRate, prRate, stateFundingRate, accredStandardsRate, edTechRate,
+    majorsRate, seatsRate,
+    tuitionRate, grantsRate, grantsCap, publicationsRate, endowmentRate, prestigeRate, prRate, stateFundingRate, accredStandardsRate, edTechRate,
     perTeaching, perAdjunct, perClassroom, perTA,
-    perResearchGrants, perResearchPub, perRA, perDevOffice, perCommOffice, perGovRelations, perAccredCouncil, perEdTechDivision, perService,
+    perResearchGrants, perResearchPub, perResearchPubBase, perResearchPubBoost, perRA, perDevOffice, perCommOffice, perGovRelations, perAccredCouncil, perEdTechDivision, perService,
     totalRate: tuitionRate + grantsRate + publicationsRate + endowmentRate + prestigeRate + prRate + stateFundingRate + accredStandardsRate + edTechRate
   };
 }
@@ -2730,8 +2766,18 @@ function idleTick(dtSeconds){
     IDLE.understaffedSince = null;
   }
 
+  IDLE.majors += r.majorsRate * dtSeconds;
+  IDLE.seats += r.seatsRate * dtSeconds;
   IDLE.tuition += r.tuitionRate * dtSeconds;
-  IDLE.grants += r.grantsRate * dtSeconds;
+
+  // Grants are capped against the current per-faculty ceiling. The cap only
+  // ever limits new growth — reassigning Research faculty away later never
+  // claws back grants already banked.
+  const grantsCeiling = Math.max(r.grantsCap, IDLE.grants);
+  const grantsBefore = IDLE.grants;
+  IDLE.grants = Math.min(IDLE.grants + r.grantsRate * dtSeconds, grantsCeiling);
+  const grantsGainedPerSec = dtSeconds > 0 ? (IDLE.grants - grantsBefore) / dtSeconds : 0;
+
   IDLE.publications += r.publicationsRate * dtSeconds;
   IDLE.endowment += r.endowmentRate * dtSeconds;
   IDLE.prestige += r.prestigeRate * dtSeconds;
@@ -2739,9 +2785,11 @@ function idleTick(dtSeconds){
   IDLE.stateFunding += r.stateFundingRate * dtSeconds;
   IDLE.accredStandards += r.accredStandardsRate * dtSeconds;
   IDLE.edTechContracts += r.edTechRate * dtSeconds;
-  IDLE.lifetimeEarned += r.totalRate * dtSeconds;
+  IDLE.lifetimeEarned += (r.tuitionRate + grantsGainedPerSec + r.publicationsRate + r.endowmentRate + r.prestigeRate + r.prRate + r.stateFundingRate + r.accredStandardsRate + r.edTechRate) * dtSeconds;
 
-  const moraleProd = IDLE.service * r.perService;
+  // Landing a grant or getting a paper out is a real morale boost, on top of
+  // whatever Service faculty are doing.
+  const moraleProd = IDLE.service * r.perService + grantsGainedPerSec * MORALE_PER_GRANT + r.publicationsRate * MORALE_PER_PUBLICATION;
   IDLE.morale = Math.max(0, Math.min(100, IDLE.morale + (moraleProd - 0.3) * dtSeconds));
 
   if(r.isShort && IDLE.understaffedSince != null){
@@ -2795,8 +2843,7 @@ function sellTheStack(){
 }
 
 function recruitStudent(){
-  IDLE.tuition += 1;
-  IDLE.lifetimeEarned += 1;
+  IDLE.seats += 1;
   renderIdle();
 }
 
@@ -2933,8 +2980,10 @@ function renderIdle(){
     ${warningHtml}
     <div class="idle-resources">
       <div class="idle-res"><span class="lbl">Tuition</span><span class="val">${fmtIdle(IDLE.tuition)}</span></div>
+      <div class="idle-res"><span class="lbl">Majors</span><span class="val">${fmtIdle(IDLE.majors)}</span></div>
+      <div class="idle-res"><span class="lbl">Seats</span><span class="val">${fmtIdle(IDLE.seats)}</span></div>
       <div class="idle-res"><span class="lbl">Grants</span><span class="val">${fmtIdle(IDLE.grants)}</span></div>
-      ${tier2Unlocked ? `<div class="idle-res"><span class="lbl">Publications</span><span class="val">${fmtIdle(IDLE.publications)}</span></div>` : ""}
+      <div class="idle-res"><span class="lbl">Publications</span><span class="val">${fmtIdle(IDLE.publications)}</span></div>
       ${tier2Unlocked ? `<div class="idle-res"><span class="lbl">Endowment</span><span class="val">${fmtIdle(IDLE.endowment)}</span></div>` : ""}
       ${tier2Unlocked ? `<div class="idle-res"><span class="lbl">Prestige</span><span class="val">${fmtIdle(IDLE.prestige)}</span></div>` : ""}
       ${tier3Unlocked ? `<div class="idle-res"><span class="lbl">PR</span><span class="val">${fmtIdle(IDLE.pr)}</span></div>` : ""}
@@ -2949,23 +2998,23 @@ function renderIdle(){
     </div>
     ${tier3Unlocked ? rateNote(`The books are open now &mdash; every line below shows exactly what it's worth. Combined output right now: ${fmtRate(rates.totalRate)}/s across all resources, which is what your next Reputation gain (${projectedRep}) is calculated from.`) : ""}
 
-    <button class="continue-btn" id="recruitBtn">Recruit a Student (+1 Tuition)</button>
+    <button class="continue-btn" id="recruitBtn">Recruit a Student (+1 Seat)</button>
 
     <div class="idle-section">
       <div class="idle-section-title">Faculty &mdash; ${IDLE.faculty} hired / ${IDLE.facultyOffice} offices</div>
       <div class="idle-jobs">
-        <div class="job-row"><span>Teaching: ${IDLE.teaching}${tier3Unlocked ? ` (+${fmtRate(rates.perTeaching)} Tuition/s each)` : ""}</span><span><button class="job-btn" data-from="teaching" data-to="research">&rarr; Research</button><button class="job-btn" data-from="teaching" data-to="service">&rarr; Service</button></span></div>
-        <div class="job-row"><span>Research: ${IDLE.research}${tier3Unlocked ? ` (${IDLE.lab > 0 ? `+${fmtRate(rates.perResearchGrants)} Grants/s` : "no Lab yet"}${IDLE.researchCenter > 0 ? ` + ${fmtRate(rates.perResearchPub)} Publications/s` : ""} each)` : ""}</span><span><button class="job-btn" data-from="research" data-to="teaching">&rarr; Teaching</button><button class="job-btn" data-from="research" data-to="service">&rarr; Service</button></span></div>
+        <div class="job-row"><span>Teaching: ${IDLE.teaching}${tier3Unlocked ? ` (+${fmtRate(rates.perTeaching)} Majors/s, +${fmtRate(rates.perTeaching * SEATS_PER_MAJOR)} Seats/s each)` : ""}</span><span><button class="job-btn" data-from="teaching" data-to="research">&rarr; Research</button><button class="job-btn" data-from="teaching" data-to="service">&rarr; Service</button></span></div>
+        <div class="job-row"><span>Research: ${IDLE.research}${tier3Unlocked ? ` (${IDLE.lab > 0 ? `+${fmtRate(rates.perResearchGrants)} Grants/s, capped at ${GRANT_CAP_PER_FACULTY} each` : "no Lab yet for Grants"} + ${fmtRate(rates.perResearchPub)} Publications/s each &mdash; both also lift Morale)` : ""}</span><span><button class="job-btn" data-from="research" data-to="teaching">&rarr; Teaching</button><button class="job-btn" data-from="research" data-to="service">&rarr; Service</button></span></div>
         <div class="job-row"><span>Service: ${IDLE.service}${IDLE.academicProgram > 0 ? ` (need ${reqAssessmentService}+ for assessments)` : ""}${tier3Unlocked ? ` (+${fmtRate(rates.perService)} Morale/s each)` : ""}</span><span><button class="job-btn" data-from="service" data-to="teaching">&rarr; Teaching</button><button class="job-btn" data-from="service" data-to="research">&rarr; Research</button></span></div>
       </div>
       ${idleBuyBtn("hireFacultyBtn", "Hire Faculty", facultyCost, IDLE.tuition >= facultyCost, IDLE.faculty >= IDLE.facultyOffice)}
-      ${IDLE.faculty >= IDLE.facultyOffice ? `<div class="idle-section-sub">No open offices &mdash; build another Faculty Office first.</div>` : ""}
+      ${IDLE.faculty >= IDLE.facultyOffice ? `<div class="idle-section-sub idle-button-note">No open offices &mdash; build another Faculty Office first.</div>` : ""}
     </div>
 
     <div class="idle-section">
       <div class="idle-section-title">Adjuncts &mdash; ${IDLE.adjuncts} (need ${reqAdj}+)</div>
       <div class="idle-section-sub">Always teaching. No office required &mdash; they share whatever space is left.</div>
-      ${tier3Unlocked ? rateNote(`+${fmtRate(rates.perAdjunct)} Tuition/s each`) : ""}
+      ${tier3Unlocked ? rateNote(`+${fmtRate(rates.perAdjunct)} Majors/s, +${fmtRate(rates.perAdjunct * SEATS_PER_MAJOR)} Seats/s each`) : ""}
       ${idleBuyBtn("hireAdjunctBtn", "Hire Adjunct", adjunctCost, IDLE.tuition >= adjunctCost)}
     </div>
 
@@ -2978,17 +3027,17 @@ function renderIdle(){
     <div class="idle-section">
       <div class="idle-section-title">Buildings</div>
       ${idleBuyBtn("buildOfficeBtn", `Faculty Office (${IDLE.facultyOffice})`, officeCost, IDLE.tuition >= officeCost)}
-      ${tier3Unlocked ? rateNote(`Classroom: +${fmtRate(rates.perClassroom)} Tuition/s each &middot; Academic Program: +10% Tuition multiplier each &middot; Lab: +${fmtRate(rates.perResearchGrants)} Grants/s per Research faculty`) : ""}
+      ${tier3Unlocked ? rateNote(`Classroom: +${fmtRate(rates.perClassroom)} Majors/s, +${fmtRate(rates.perClassroom * SEATS_PER_MAJOR)} Seats/s each &middot; Academic Program: +10% recruiting multiplier each &middot; Lab: +${fmtRate(rates.perResearchGrants)} Grants/s per Research faculty (capped at ${GRANT_CAP_PER_FACULTY} each) &middot; Tuition itself is $${TUITION_PER_SEAT_PER_SECOND}/Seat/s`) : ""}
       ${idleBuyBtn("buildClassroomBtn", `Classroom (${IDLE.classroom})`, classroomCost, IDLE.tuition >= classroomCost)}
       ${idleBuyBtn("buildProgramBtn", `Academic Program (${IDLE.academicProgram})`, programCost, IDLE.tuition >= programCost)}
       ${idleBuyBtn("buildLabBtn", `Lab (${IDLE.lab})`, labCost, IDLE.tuition >= labCost)}
-      ${!tier2Unlocked ? `<div class="idle-section-sub">Becoming a School needs a Lab (${IDLE.lab >= 1 ? "&#10003;" : "&mdash;"}) and ${TIER2_PROGRAMS_REQUIRED} Academic Programs (${IDLE.academicProgram}/${TIER2_PROGRAMS_REQUIRED}).</div>` : ""}
+      ${!tier2Unlocked ? `<div class="idle-section-sub idle-button-note">Becoming a School needs a Lab (${IDLE.lab >= 1 ? "&#10003;" : "&mdash;"}) and ${TIER2_PROGRAMS_REQUIRED} Academic Programs (${IDLE.academicProgram}/${TIER2_PROGRAMS_REQUIRED}).</div>` : ""}
     </div>
 
     ${tier2Unlocked ? `
     <div class="idle-section">
       <div class="idle-section-title">School &amp; College</div>
-      ${tier3Unlocked ? rateNote(`Research Center: +${fmtRate(rates.perResearchPub)} Publications/s per Research faculty &middot; Development Office: +${fmtRate(rates.perDevOffice)} Endowment/s each &middot; Library: +5% global multiplier each`) : ""}
+      ${tier3Unlocked ? rateNote(`Research Center: +${fmtRate(rates.perResearchPubBoost)} bonus Publications/s per Research faculty, on top of the base rate &middot; Development Office: +${fmtRate(rates.perDevOffice)} Endowment/s each &middot; Library: +5% global multiplier each`) : ""}
       ${idleBuyBtn("buildResearchCenterBtn", `Research Center (${IDLE.researchCenter})`, researchCenterCost, IDLE.grants >= researchCenterCost, false, "Grants")}
       ${IDLE.doctoralProgram >= 1
         ? `<div class="idle-established">Doctoral Program &mdash; established</div>`
@@ -3002,23 +3051,23 @@ function renderIdle(){
       <div class="idle-section-title">Grad Students &mdash; ${IDLE.gradStudents}</div>
       <div class="idle-section-sub">Cheap labor. TAs help teach, RAs help research.</div>
       <div class="idle-jobs">
-        <div class="job-row"><span>TA: ${IDLE.ta}${tier3Unlocked ? ` (+${fmtRate(rates.perTA)} Tuition/s each)` : ""}</span><span><button class="job-btn" data-from="ta" data-to="ra">&rarr; RA</button></span></div>
+        <div class="job-row"><span>TA: ${IDLE.ta}${tier3Unlocked ? ` (+${fmtRate(rates.perTA)} Majors/s, +${fmtRate(rates.perTA * SEATS_PER_MAJOR)} Seats/s each)` : ""}</span><span><button class="job-btn" data-from="ta" data-to="ra">&rarr; RA</button></span></div>
         <div class="job-row"><span>RA: ${IDLE.ra}${tier3Unlocked ? ` (${IDLE.researchCenter > 0 ? `+${fmtRate(rates.perRA)} Publications/s` : "needs a Research Center"} each)` : ""}</span><span><button class="job-btn" data-from="ra" data-to="ta">&rarr; TA</button></span></div>
       </div>
       ${idleBuyBtn("hireGradBtn", "Hire Grad Student", gradCost, IDLE.tuition >= gradCost)}
     </div>` : ""}
 
-    ${!tier3Unlocked ? `<div class="idle-section-sub">Growing university-wide needs ${TIER3_PRESTIGE_REQUIRED} Prestige (${fmtIdle(IDLE.prestige)}/${TIER3_PRESTIGE_REQUIRED}).</div>` : ""}
+    ${!tier3Unlocked ? `<div class="idle-section-sub idle-button-note">Growing university-wide needs ${TIER3_PRESTIGE_REQUIRED} Prestige (${fmtIdle(IDLE.prestige)}/${TIER3_PRESTIGE_REQUIRED}).</div>` : ""}
 
     ${tier3Unlocked ? `
     <div class="idle-section">
       <div class="idle-section-title">University-wide Influence</div>
-      ${rateNote(`Communications Office: +${fmtRate(rates.perCommOffice)} PR/s each (PR gives a permanent Tuition multiplier) &middot; Satellite Campus: +20% global multiplier each`)}
+      ${rateNote(`Communications Office: +${fmtRate(rates.perCommOffice)} PR/s each (PR boosts recruiting, growing Majors and Seats faster) &middot; Satellite Campus: +20% global multiplier each`)}
       ${idleBuyBtn("buildCommOfficeBtn", `Communications Office (${IDLE.communicationsOffice})`, commOfficeCost, IDLE.endowment >= commOfficeCost, false, "Endowment")}
       ${idleBuyBtn("buildSatelliteBtn", `Satellite Campus (${IDLE.satelliteCampus})`, satelliteCost, IDLE.prestige >= satelliteCost, false, "Prestige")}
     </div>
 
-    ${!tier4Unlocked ? `<div class="idle-section-sub">Growing into a statewide system needs a Satellite Campus (${IDLE.satelliteCampus >= 1 ? "&#10003;" : "&mdash;"}) and ${TIER4_PRESTIGE_REQUIRED} Prestige (${fmtIdle(IDLE.prestige)}/${TIER4_PRESTIGE_REQUIRED}).</div>` : ""}
+    ${!tier4Unlocked ? `<div class="idle-section-sub idle-button-note">Growing into a statewide system needs a Satellite Campus (${IDLE.satelliteCampus >= 1 ? "&#10003;" : "&mdash;"}) and ${TIER4_PRESTIGE_REQUIRED} Prestige (${fmtIdle(IDLE.prestige)}/${TIER4_PRESTIGE_REQUIRED}).</div>` : ""}
 
     ${tier4Unlocked ? `
     <div class="idle-section">
@@ -3031,7 +3080,7 @@ function renderIdle(){
         : idleBuyBtn("buildChancellorBtn", "Chancellor's Office", chancellorCost, IDLE.stateFunding >= chancellorCost, false, "State Funding")}
     </div>
 
-    ${!tier5Unlocked ? `<div class="idle-section-sub">Founding your own accrediting body needs a Chancellor's Office (${IDLE.chancellorOffice >= 1 ? "&#10003;" : "&mdash;"}) and ${TIER5_REPUTATION_REQUIRED} lifetime Reputation (${IDLE.reputation}/${TIER5_REPUTATION_REQUIRED}).</div>` : ""}
+    ${!tier5Unlocked ? `<div class="idle-section-sub idle-button-note">Founding your own accrediting body needs a Chancellor's Office (${IDLE.chancellorOffice >= 1 ? "&#10003;" : "&mdash;"}) and ${TIER5_REPUTATION_REQUIRED} lifetime Reputation (${IDLE.reputation}/${TIER5_REPUTATION_REQUIRED}).</div>` : ""}
 
     ${tier5Unlocked ? `
     <div class="idle-section">
@@ -3043,12 +3092,12 @@ function renderIdle(){
         : idleBuyBtn("buildAccreditingBodyBtn", "Accrediting Body", accreditingBodyCost, IDLE.accredStandards >= accreditingBodyCost, false, "Accreditation Standards")}
       ${IDLE.accreditingBody >= 1
         ? idleBuyBtn("buildEdTechBtn", `Ed-Tech Division (${IDLE.edTechDivision})`, edTechDivisionCost, IDLE.accredStandards >= edTechDivisionCost, false, "Accreditation Standards")
-        : `<div class="idle-section-sub">Requires the Accrediting Body.</div>`}
+        : `<div class="idle-section-sub idle-button-note">Requires the Accrediting Body.</div>`}
     </div>
 
     ${canSellTheStack()
       ? `<button class="idle-prestige-btn" id="sellStackBtn" style="border-style:solid; font-weight:700;">SELL THE WHOLE STACK &mdash; exit and start over, elsewhere</button>`
-      : `<div class="idle-section-sub">Selling the stack needs the Accrediting Body and ${SELL_STACK_EDTECH_REQUIRED} Ed-Tech Contracts (${fmtIdle(IDLE.edTechContracts)}/${SELL_STACK_EDTECH_REQUIRED}).</div>`}
+      : `<div class="idle-section-sub idle-button-note">Selling the stack needs the Accrediting Body and ${SELL_STACK_EDTECH_REQUIRED} Ed-Tech Contracts (${fmtIdle(IDLE.edTechContracts)}/${SELL_STACK_EDTECH_REQUIRED}).</div>`}
     ` : ""}
     ` : ""}
     ` : ""}
