@@ -2310,7 +2310,7 @@ function renderStart(){
     enterWeek();
   };
   document.getElementById("rodeoBtn").onclick = () => {
-    startIdleGame();
+    startFreshIdleGame();
   };
   document.getElementById("disclaimerBtn").onclick = () => {
     const box = document.getElementById("disclaimerBox");
@@ -2719,6 +2719,13 @@ function loadIdleSaveRaw(){
   }catch(e){ return null; }
 }
 
+function ensureIdleIntervalRunning(){
+  if(!idleIntervalStarted){
+    idleIntervalStarted = true;
+    setInterval(idleLoop, IDLE_TICK_MS);
+  }
+}
+
 function startIdleGame(){
   const loaded = loadIdleSaveRaw();
   IDLE = loaded || freshIdleRun(0);
@@ -2727,10 +2734,19 @@ function startIdleGame(){
   // in-progress department back to setup and re-granting the lump sum.
   if(loaded && IDLE.semesterStarted == null) IDLE.semesterStarted = true;
   IDLE.lastTick = Date.now();
-  if(!idleIntervalStarted){
-    idleIntervalStarted = true;
-    setInterval(idleLoop, IDLE_TICK_MS);
-  }
+  ensureIdleIntervalRunning();
+  renderIdle();
+}
+
+// "Not Your First Rodeo" is a testing/replay shortcut on the start screen —
+// it always begins a brand-new department (Reputation 0, fresh startup
+// budget) and overwrites any in-progress save, rather than resuming
+// wherever a previous session left off.
+function startFreshIdleGame(){
+  IDLE = freshIdleRun(0);
+  IDLE.lastTick = Date.now();
+  saveIdle();
+  ensureIdleIntervalRunning();
   renderIdle();
 }
 
